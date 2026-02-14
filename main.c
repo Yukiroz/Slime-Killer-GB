@@ -41,6 +41,31 @@ typedef unsigned char UINT8;
 #define SPAWN_MIN_Y 44
 #define SPAWN_MAX_Y 120
 
+// RESPAWN TOGGLE (set to 0 to disable enemy respawning)
+#define ENABLE_RESPAWN 0
+
+// ENEMY MOVEMENT BOUNDARIES
+#define MIN_ENEMY_X 16
+#define MAX_ENEMY_X 152
+#define MIN_ENEMY_Y 20
+#define MAX_ENEMY_Y 128
+
+// Palette flag fallbacks for older GBDK headers
+#ifndef S_PALETTE
+#define S_PALETTE 0x10
+#endif
+#ifndef S_PAL0
+#define S_PAL0 0x00
+#endif
+#ifndef S_PAL1
+#define S_PAL1 S_PALETTE
+#endif
+
+// PALETTE ASSIGNMENTS
+#define GIRL_PALETTE S_PAL0
+#define SWORD_PALETTE S_PAL0
+#define ENEMY_PALETTE S_PAL1
+
 // ============================================
 // SPRITE ALLOCATION MAP (for 8 enemies max)
 // ============================================
@@ -53,12 +78,14 @@ typedef unsigned char UINT8;
 //
 // OAM (Sprite Slots - 40 slots maximum):
 //   Slots 0-3:    Girl (displayed as 2x2 sprite grid)
-//   Slots 4-15:   Available (12 slots)
-//   Slots 16-31:  Enemies (16 slots for up to 8 enemies, 2 sprites each for animation)
-//   Slots 32-33:  Sword sprites
-//   Slots 34-39:  Available (6 slots for future use)
+//   Slots 4-5:    Sword (all directions use these 2 slots)
+//   Slots 6-7:    Sword placeholder (reserved for future sword use)
+//   Slots 8-13:   Stat sprites (6 slots for future use: hearts, damage, etc.)
+//   Slots 14-21:  Placeholders (8 slots reserved for future use)
+//   Slots 22-39:  Enemies (18 slots, each enemy uses 1 slot with tile animation)
+//                 Currently: slime_0 at slot 22, slime_1 at slot 23
 //
-// NOTE: If you add more enemies, update this map! Currently: 8 enemies max
+// NOTE: Enemies now use single sprite slots with tile swapping for animation
 //
 // PALETTES:
 //   Palette 0 (OBP0_REG): Girl and Sword colors
@@ -97,30 +124,30 @@ void room_0()
     {
         //Room 1 Code
             slime_0.x = 26;
-            slime_0.y = 26;
+            slime_0.y = 50;
             slime_0.width = 8;
             slime_0.height = 8;
             slime_0.anim = 0;
+            slime_0.death = 0;
 
             //set_sprite_palette(16, 0xE0);
-            set_sprite_tile(16, 16);
-            slime_0.spritids[0] = 16;
-            set_sprite_tile(17, 17);
-            slime_0.spritids[1] = 17;
+            set_sprite_tile(22, 16);
+            set_sprite_prop(22, ENEMY_PALETTE);
+            slime_0.spritids[0] = 22;
             
             moveslime(&slime_0, slime_0.x, slime_0.y);
 
             slime_1.x = 26;
-            slime_1.y = 26;
+            slime_1.y = 70;
             slime_1.width = 8;
             slime_1.height = 8;
             slime_1.anim = 0;
+            slime_1.death = 0;
 
             //set_sprite_palette(16, 0xE0);
-            set_sprite_tile(16, 16);
-            slime_1.spritids[0] = 16;
-            set_sprite_tile(17, 17);
-            slime_1.spritids[1] = 17;
+            set_sprite_tile(23, 16);
+            set_sprite_prop(23, ENEMY_PALETTE);
+            slime_1.spritids[0] = 23;
             
             moveslime(&slime_1, slime_1.x, slime_1.y);
     }
@@ -153,32 +180,32 @@ void room_0()
         }
     } */
 
-    void girl_slimecolision()
+    void character_enemy_collision(struct GameCharacter* character, struct Enemy* enemy)
     {
-        if (girl.x < slime.x + slime.width - pad &&
-        girl.x + girl.width - pad > slime.x &&
-        girl.y < slime.y + slime.height - pad &&
-        girl.y + girl.height - pad > slime.y)
+        if (character->x < enemy->x + enemy->width - pad &&
+        character->x + character->width - pad > enemy->x &&
+        character->y < enemy->y + enemy->height - pad &&
+        character->y + character->height - pad > enemy->y)
         {
             {
-                hide_sprite(girl.spritids[0]);
-                hide_sprite(girl.spritids[1]);
-                hide_sprite(girl.spritids[2]);
-                hide_sprite(girl.spritids[3]);
+                hide_sprite(character->spritids[0]);
+                hide_sprite(character->spritids[1]);
+                hide_sprite(character->spritids[2]);
+                hide_sprite(character->spritids[3]);
             }
         }
     }
-    void sword_slimecolision()
+    void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy)
     {
-        if (sword.x < slime.x + slime.width &&
-        sword.x + sword.width > slime.x &&
-        sword.y < slime.y + slime.height &&
-        sword.y + sword.height > slime.y)
+        if (weapon->x < enemy->x + enemy->width &&
+        weapon->x + weapon->width > enemy->x &&
+        weapon->y < enemy->y + enemy->height &&
+        weapon->y + enemy->height > enemy->y)
         {
             {
-                slime.death = 1;
-                slime.x = 0;
-                slime.y = 0;
+                enemy->death = 1;
+                enemy->x = 0;
+                enemy->y = 0;
                 score = score ++;
             }
         }
@@ -192,88 +219,80 @@ void room_0()
     }
 
 
-    void moveswordl(struct Weapon* character, UINT8 x, UINT8 y)
+    void sword_set_direction(struct Weapon* weapon)
     {
-
-        sword.x = girl.x - 3;
-        sword.y = girl.y + 8;
-        set_sprite_tile(18, 18);
-        set_sprite_prop(18, 0);
-        sword.spritids[0] = 18;
-        set_sprite_tile(19, 19);
-        set_sprite_prop(19, 0);
-        sword.spritids[1] = 19;
-        move_sprite(character->spritids[0], x, y);
-        move_sprite(character->spritids[1], x - spritesize, y);
-        hide_sprite(20);
-        hide_sprite(21);
-
-    }
-    void moveswordr(struct Weapon* character, UINT8 x, UINT8 y)
-    {
-        sword.x = girl.x + 21;
-        sword.y = girl.y + 8;
-        set_sprite_tile(18, 18);
-        set_sprite_prop(18, S_FLIPX);
-        sword.spritids[1] = 18;
-        set_sprite_tile(19, 19);
-        set_sprite_prop(19, S_FLIPX);
-        sword.spritids[0] = 19;
-        move_sprite(character->spritids[0], x, y);
-        move_sprite(character->spritids[1], x - spritesize, y);
-        hide_sprite(20);
-        hide_sprite(21);
-    }
-    void moveswordu(struct Weapon* character, UINT8 x, UINT8 y)
-    {
-        sword.x = girl.x + 9;
-        sword.y = girl.y;
-        set_sprite_tile(20, 20);
-        set_sprite_prop(20, S_FLIPX);
-        sword.spritids[0] = 20;
-        set_sprite_tile(21, 21);
-        set_sprite_prop(21, S_FLIPX);
-        sword.spritids[1] = 21;
-        move_sprite(character->spritids[0], x, y);
-        move_sprite(character->spritids[1], x, y - spritesize);
-        hide_sprite(18);
-        hide_sprite(19);
-    }
-    void moveswordd(struct Weapon* character, UINT8 x, UINT8 y)
-    {
-        sword.x = girl.x - 2;
-        sword.y = girl.y + 20;
-        set_sprite_tile(20, 20);
-        set_sprite_prop(20, S_FLIPY);
-        sword.spritids[1] = 20;
-        set_sprite_tile(21, 21);
-        set_sprite_prop(21, S_FLIPY);
-        sword.spritids[0] = 21;
-        move_sprite(character->spritids[0], x, y);
-        move_sprite(character->spritids[1], x , y - spritesize);
-        hide_sprite(18);
-        hide_sprite(19);
+        // Uses global direction variable: 0=down, 1=up, 2=left, 3=right
+        // All directions now use OAM slots 4-5
+        if(direction == 2) // left
+        {
+            sword.x = girl.x - 3;
+            sword.y = girl.y + 8;
+            set_sprite_tile(4, 18);
+            set_sprite_prop(4, 0);
+            sword.spritids[0] = 4;
+            set_sprite_tile(5, 19);
+            set_sprite_prop(5, 0);
+            sword.spritids[1] = 5;
+            move_sprite(weapon->spritids[0], sword.x, sword.y);
+            move_sprite(weapon->spritids[1], sword.x - spritesize, sword.y);
+        }
+        else if(direction == 3) // right
+        {
+            sword.x = girl.x + 21;
+            sword.y = girl.y + 8;
+            set_sprite_tile(4, 18);
+            set_sprite_prop(4, S_FLIPX);
+            sword.spritids[1] = 4;
+            set_sprite_tile(5, 19);
+            set_sprite_prop(5, S_FLIPX);
+            sword.spritids[0] = 5;
+            move_sprite(weapon->spritids[0], sword.x, sword.y);
+            move_sprite(weapon->spritids[1], sword.x - spritesize, sword.y);
+        }
+        else if(direction == 1) // up
+        {
+            sword.x = girl.x + 9;
+            sword.y = girl.y;
+            set_sprite_tile(4, 20);
+            set_sprite_prop(4, S_FLIPX);
+            sword.spritids[0] = 4;
+            set_sprite_tile(5, 21);
+            set_sprite_prop(5, S_FLIPX);
+            sword.spritids[1] = 5;
+            move_sprite(weapon->spritids[0], sword.x, sword.y);
+            move_sprite(weapon->spritids[1], sword.x, sword.y - spritesize);
+        }
+        else if(direction == 0) // down
+        {
+            sword.x = girl.x - 2;
+            sword.y = girl.y + 20;
+            set_sprite_tile(4, 20);
+            set_sprite_prop(4, S_FLIPY);
+            sword.spritids[1] = 4;
+            set_sprite_tile(5, 21);
+            set_sprite_prop(5, S_FLIPY);
+            sword.spritids[0] = 5;
+            move_sprite(weapon->spritids[0], sword.x, sword.y);
+            move_sprite(weapon->spritids[1], sword.x, sword.y - spritesize);
+        }
     }
     void attack()
     {
+        sword_set_direction(&sword);
         if(direction == 0)
         {
-            moveswordd(&sword, sword.x, sword.y);
             sword.y = sword.y + 6;
         }
         else if(direction == 1)
         {
-            moveswordu(&sword, sword.x, sword.y);
             sword.y = sword.y - 6;
         }
         else if(direction == 2)
         {
-            moveswordl(&sword, sword.x, sword.y);
             sword.x = sword.x - 6;
         }
         else if(direction == 3)
         {
-            moveswordr(&sword, sword.x, sword.y);
             sword.x = sword.x + 6;
         }
         if (locktimer == 0)
@@ -286,83 +305,196 @@ void room_0()
         if(direction == 0)
         {
             sword.y = sword.y - 8;
-            moveswordd(&sword, sword.x, sword.y);
         }
         else if(direction == 1)
         {
             sword.y = sword.y + 8;
-            moveswordu(&sword, sword.x, sword.y);
         }
         else if(direction == 2)
         {
             sword.x = sword.x + 8;
-            moveswordl(&sword, sword.x, sword.y);
         }
         else if(direction == 3)
         {
             sword.x = sword.x - 8;
-            moveswordr(&sword, sword.x, sword.y);
         }
+        sword_set_direction(&sword);
     }
     void moveslime(struct Enemy* character, UINT8 x, UINT8 y)
     {
         move_sprite(character->spritids[0], x, y);
     }
-    void animslime()
+    void animate_enemy(struct Enemy* enemy, UINT8 tile0, UINT8 tile1)
     {
-        if(slime.anim == 0)
+        // Now just changes the tile in spritids[0] based on anim state
+        if(enemy->anim == 0)
         {
-            set_sprite_tile(17, 17);
-            slime.spritids[0] = 17;
-            hide_sprite(16);
-            moveslime(&slime, slime.x, slime.y);
+            set_sprite_tile(enemy->spritids[0], tile0);
         }
-        else if(slime.anim == 1)
+        else if(enemy->anim == 1)
         {
-            set_sprite_tile(16, 16);
-            slime.spritids[0] = 16;
-            hide_sprite(17);
-            moveslime(&slime, slime.x, slime.y);
+            set_sprite_tile(enemy->spritids[0], tile1);
         }
     }
 
-    // Sprite Assignment to Girl if facing front (State 0)
-    void flipgirl()
+    void enemy_check_borders(struct Enemy* enemy)
     {
-        set_sprite_tile(0, 0);
-        //set_sprite_prop(0, S_FLIPX);
-        girl.spritids[0] = 0;
-        set_sprite_tile(1, 1);
-        //set_sprite_prop(1, S_FLIPX);
-        girl.spritids[1] = 1;
-        set_sprite_tile(2, 2);
-        set_sprite_prop(2, S_FLIPX);
-        girl.spritids[3] = 2;
-        set_sprite_tile(3, 3);
-        set_sprite_prop(3, S_FLIPX);
-        girl.spritids[2] = 3;
-
-        hide_sprite(4);
-        hide_sprite(5);
-        hide_sprite(6);
-        hide_sprite(7);
-        hide_sprite(8);
-        hide_sprite(9);
-        hide_sprite(10);
-        hide_sprite(11);
-        hide_sprite(12);
-        hide_sprite(13);
-        hide_sprite(14);
-        hide_sprite(15);
-
-        movegirl(&girl, girl.x, girl.y);
-
-
+        if (enemy->x < MIN_ENEMY_X)
+        {
+            enemy->x = MIN_ENEMY_X;
+        }
+        if (enemy->x > MAX_ENEMY_X)
+        {
+            enemy->x = MAX_ENEMY_X;
+        }
+        if (enemy->y < MIN_ENEMY_Y)
+        {
+            enemy->y = MIN_ENEMY_Y;
+        }
+        if (enemy->y > MAX_ENEMY_Y)
+        {
+            enemy->y = MAX_ENEMY_Y;
+        }
     }
 
-    // Sprite Assignment to Girl if facing front (State 1)
-    void flipgirln()
+    // Consolidated sprite setter: always uses slots 0-3, swaps tiles based on direction/state
+    void character_set_sprite(struct GameCharacter* character, UINT8 anim_state)
     {
+        // anim_state: 0=down_walk, 1=down_stand, 2=left_walk, 3=left_stand,
+        //             4=right_walk, 5=right_stand, 6=up_walk, 7=up_stand
+        
+        if(anim_state == 0) // down walking
+        {
+            set_sprite_tile(0, 0);
+            set_sprite_prop(0, 0);
+            character->spritids[0] = 0;
+            set_sprite_tile(1, 1);
+            set_sprite_prop(1, 0);
+            character->spritids[1] = 1;
+            set_sprite_tile(2, 2);
+            set_sprite_prop(2, S_FLIPX);
+            character->spritids[3] = 2;
+            set_sprite_tile(3, 3);
+            set_sprite_prop(3, S_FLIPX);
+            character->spritids[2] = 3;
+        }
+        else if(anim_state == 1) // down standing
+        {
+            set_sprite_tile(0, 0);
+            set_sprite_prop(0, 0);
+            character->spritids[0] = 0;
+            set_sprite_tile(1, 1);
+            set_sprite_prop(1, 0);
+            character->spritids[1] = 1;
+            set_sprite_tile(2, 2);
+            set_sprite_prop(2, 0);
+            character->spritids[2] = 2;
+            set_sprite_tile(3, 3);
+            set_sprite_prop(3, 0);
+            character->spritids[3] = 3;
+        }
+        else if(anim_state == 2) // left walking
+        {
+            set_sprite_tile(0, 4);
+            set_sprite_prop(0, 0);
+            character->spritids[0] = 0;
+            set_sprite_tile(1, 5);
+            set_sprite_prop(1, 0);
+            character->spritids[1] = 1;
+            set_sprite_tile(2, 6);
+            set_sprite_prop(2, 0);
+            character->spritids[2] = 2;
+            set_sprite_tile(3, 7);
+            set_sprite_prop(3, 0);
+            character->spritids[3] = 3;
+        }
+        else if(anim_state == 3) // left standing
+        {
+            set_sprite_tile(0, 8);
+            set_sprite_prop(0, 0);
+            character->spritids[0] = 0;
+            set_sprite_tile(1, 9);
+            set_sprite_prop(1, 0);
+            character->spritids[1] = 1;
+            set_sprite_tile(2, 10);
+            set_sprite_prop(2, 0);
+            character->spritids[2] = 2;
+            set_sprite_tile(3, 11);
+            set_sprite_prop(3, 0);
+            character->spritids[3] = 3;
+        }
+        else if(anim_state == 4) // right walking
+        {
+            set_sprite_tile(0, 5);
+            set_sprite_prop(0, S_FLIPX);
+            character->spritids[0] = 0;
+            set_sprite_tile(1, 4);
+            set_sprite_prop(1, S_FLIPX);
+            character->spritids[1] = 1;
+            set_sprite_tile(2, 7);
+            set_sprite_prop(2, S_FLIPX);
+            character->spritids[2] = 2;
+            set_sprite_tile(3, 6);
+            set_sprite_prop(3, S_FLIPX);
+            character->spritids[3] = 3;
+        }
+        else if(anim_state == 5) // right standing
+        {
+            set_sprite_tile(0, 9);
+            set_sprite_prop(0, S_FLIPX);
+            character->spritids[0] = 0;
+            set_sprite_tile(1, 8);
+            set_sprite_prop(1, S_FLIPX);
+            character->spritids[1] = 1;
+            set_sprite_tile(2, 11);
+            set_sprite_prop(2, S_FLIPX);
+            character->spritids[2] = 2;
+            set_sprite_tile(3, 10);
+            set_sprite_prop(3, S_FLIPX);
+            character->spritids[3] = 3;
+        }
+        else if(anim_state == 6) // up walking
+        {
+            set_sprite_tile(0, 12);
+            set_sprite_prop(0, 0);
+            character->spritids[0] = 0;
+            set_sprite_tile(1, 13);
+            set_sprite_prop(1, 0);
+            character->spritids[1] = 1;
+            set_sprite_tile(2, 14);
+            set_sprite_prop(2, 0);
+            character->spritids[2] = 2;
+            set_sprite_tile(3, 15);
+            set_sprite_prop(3, 0);
+            character->spritids[3] = 3;
+        }
+        else if(anim_state == 7) // up standing
+        {
+            set_sprite_tile(0, 12);
+            set_sprite_prop(0, 0);
+            character->spritids[0] = 0;
+            set_sprite_tile(1, 13);
+            set_sprite_prop(1, 0);
+            character->spritids[1] = 1;
+            set_sprite_tile(2, 15);
+            set_sprite_prop(2, S_FLIPX);
+            character->spritids[2] = 2;
+            set_sprite_tile(3, 14);
+            set_sprite_prop(3, S_FLIPX);
+            character->spritids[3] = 3;
+        }
+        
+        movegirl(character, character->x, character->y);
+    }
+
+    void setupgirl()
+    {
+        girl.x = 80;
+        girl.y = 36;
+        girl.width = 16;
+        girl.height = 16;
+        girl.anim = 0;
+
         set_sprite_tile(0, 0);
         set_sprite_prop(0, 0);
         girl.spritids[0] = 0;
@@ -376,235 +508,6 @@ void room_0()
         set_sprite_prop(3, 0);
         girl.spritids[3] = 3;
         
-
-        hide_sprite(4);
-        hide_sprite(5);
-        hide_sprite(6);
-        hide_sprite(7);
-        hide_sprite(8);
-        hide_sprite(9);
-        hide_sprite(10);
-        hide_sprite(11);
-        hide_sprite(12);
-        hide_sprite(13);
-        hide_sprite(14);
-        hide_sprite(15);
-
-        movegirl(&girl, girl.x, girl.y);
-    }
-
-    // Sprite Assignment to Girl if facing left and walking (State 0)
-    void flipgirllw()
-    {
-        set_sprite_tile(4, 4);
-        set_sprite_prop(4, 0);
-        girl.spritids[0] = 4;
-        set_sprite_tile(5, 5);
-        set_sprite_prop(5, 0);
-        girl.spritids[1] = 5;
-        set_sprite_tile(6, 6);
-        set_sprite_prop(6, 0);
-        girl.spritids[2] = 6;
-        set_sprite_tile(7, 7);
-        set_sprite_prop(7, 0);
-        girl.spritids[3] = 7;
-
-        hide_sprite(0);
-        hide_sprite(1);
-        hide_sprite(2);
-        hide_sprite(3);
-        hide_sprite(8);
-        hide_sprite(9);
-        hide_sprite(10);
-        hide_sprite(11);
-        hide_sprite(12);
-        hide_sprite(13);
-        hide_sprite(14);
-        hide_sprite(15);
-        
-        movegirl(&girl, girl.x, girl.y);
-    }
-
-    // Sprite Assignment to Girl if facing left and standing (State 1)
-    void flipgirlls()
-    {
-        set_sprite_tile(8, 8);
-        set_sprite_prop(8, 0);
-        girl.spritids[0] = 8;
-        set_sprite_tile(9, 9);
-        set_sprite_prop(9, 0);
-        girl.spritids[1] = 9;
-        set_sprite_tile(10, 10);
-        set_sprite_prop(10, 0);
-        girl.spritids[2] = 10;
-        set_sprite_tile(11, 11);
-        set_sprite_prop(11, 0);
-        girl.spritids[3] = 11;
-
-        hide_sprite(0);
-        hide_sprite(1);
-        hide_sprite(2);
-        hide_sprite(3);
-        hide_sprite(4);
-        hide_sprite(5);
-        hide_sprite(6);
-        hide_sprite(7);
-        hide_sprite(12);
-        hide_sprite(13);
-        hide_sprite(14);
-        hide_sprite(15);
-        
-        movegirl(&girl, girl.x, girl.y);
-    }
-
-    // Sprite Assignment to Girl if facing right and walking (State 0)
-    void flipgirlrw()
-    {
-        set_sprite_tile(4, 4);
-        set_sprite_prop(4, S_FLIPX);
-        girl.spritids[1] = 4;
-        set_sprite_tile(5, 5);
-        set_sprite_prop(5, S_FLIPX);
-        girl.spritids[0] = 5;
-        set_sprite_tile(6, 6);
-        set_sprite_prop(6, S_FLIPX);
-        girl.spritids[3] = 6;
-        set_sprite_tile(7, 7);
-        set_sprite_prop(7, S_FLIPX);
-        girl.spritids[2] = 7;
-
-        hide_sprite(0);
-        hide_sprite(1);
-        hide_sprite(2);
-        hide_sprite(3);
-        hide_sprite(8);
-        hide_sprite(9);
-        hide_sprite(10);
-        hide_sprite(11);
-        hide_sprite(12);
-        hide_sprite(13);
-        hide_sprite(14);
-        hide_sprite(15); 
-        
-        movegirl(&girl, girl.x, girl.y);
-    }
-
-    // Sprite Assignment to Girl if facing right and standing (State 1)
-    void flipgirlrs()
-    {
-        set_sprite_tile(8, 8);
-        set_sprite_prop(8, S_FLIPX);
-        girl.spritids[1] = 8;
-        set_sprite_tile(9, 9);
-        set_sprite_prop(9, S_FLIPX);
-        girl.spritids[0] = 9;
-        set_sprite_tile(10, 10);
-        set_sprite_prop(10, S_FLIPX);
-        girl.spritids[3] = 10;
-        set_sprite_tile(11, 11);
-        set_sprite_prop(11, S_FLIPX);
-        girl.spritids[2] = 11;
-
-        hide_sprite(0);
-        hide_sprite(1);
-        hide_sprite(2);
-        hide_sprite(3);
-        hide_sprite(4);
-        hide_sprite(5);
-        hide_sprite(6);
-        hide_sprite(7);
-        hide_sprite(8);
-        hide_sprite(13);
-        hide_sprite(14);
-        hide_sprite(15);
-        
-        movegirl(&girl, girl.x, girl.y);
-    }
-
-    // Sprite Assignment to Girl if facing up (State 0)
-    void flipgirlu()
-    {
-        set_sprite_tile(12, 12);
-        set_sprite_prop(12, 0);
-        girl.spritids[0] = 12;
-        set_sprite_tile(13, 13);
-        set_sprite_prop(13, 0);
-        girl.spritids[1] = 13;
-        set_sprite_tile(14, 14);
-        set_sprite_prop(14, 0);
-        girl.spritids[2] = 14;
-        set_sprite_tile(15, 15);
-        set_sprite_prop(15, 0);
-        girl.spritids[3] = 15;
-        
-        hide_sprite(0);
-        hide_sprite(1);
-        hide_sprite(2);
-        hide_sprite(3);
-        hide_sprite(4);
-        hide_sprite(5);
-        hide_sprite(6);
-        hide_sprite(7);
-        hide_sprite(8);
-        hide_sprite(9);
-        hide_sprite(10);
-        hide_sprite(11);
-
-
-        movegirl(&girl, girl.x, girl.y);
-    }
-
-    // Sprite Assignment to Girl if facing up (State 1)
-    void flipgirlun()
-    {
-        set_sprite_tile(12, 12);
-        //set_sprite_prop(0, S_FLIPX);
-        girl.spritids[0] = 12;
-        set_sprite_tile(13, 13);
-        //set_sprite_prop(1, S_FLIPX);
-        girl.spritids[1] = 13;
-        set_sprite_tile(14, 14);
-        set_sprite_prop(14, S_FLIPX);
-        girl.spritids[3] = 14;
-        set_sprite_tile(15, 15);
-        set_sprite_prop(15, S_FLIPX);
-        girl.spritids[2] = 15;
-        set_sprite_tile(3, 3);
-
-        hide_sprite(0);
-        hide_sprite(1);
-        hide_sprite(2);
-        hide_sprite(3);
-        hide_sprite(4);
-        hide_sprite(5);
-        hide_sprite(6);
-        hide_sprite(7);
-        hide_sprite(8);
-        hide_sprite(9);
-        hide_sprite(10);
-        hide_sprite(11);
-
-        movegirl(&girl, girl.x, girl.y);
-
-    }
-
-    void setupgirl()
-    {
-        girl.x = 80;
-        girl.y = 36;
-        girl.width = 16;
-        girl.height = 16;
-        girl.anim = 0;
-
-        set_sprite_tile(0, 0);
-        girl.spritids[0] = 0;
-        set_sprite_tile(1, 1);
-        girl.spritids[1] = 1;
-        set_sprite_tile(2, 2);
-        girl.spritids[2] = 2;
-        set_sprite_tile(3, 3);
-        girl.spritids[3] = 3;
-        
         movegirl(&girl, girl.x, girl.y);
     }
 
@@ -616,9 +519,12 @@ void room_0()
         slime.height = 8;
         slime.anim = 0;
 
-        //set_sprite_palette(16, 0xE0);
-        set_sprite_tile(16, 16);
-        slime.spritids[0] = 16;
+            set_sprite_tile(22, 16);
+            set_sprite_prop(22, ENEMY_PALETTE);
+            slime.spritids[0] = 22;
+            set_sprite_tile(23, 17);
+            set_sprite_prop(23, ENEMY_PALETTE);
+            slime.spritids[1] = 23;
         
         moveslime(&slime, slime.x, slime.y);
     }
@@ -632,10 +538,12 @@ void room_0()
     sword.anim = 0;
 
     //set_sprite_palette(16, 0xE0);
-    set_sprite_tile(18, 18);
-    sword.spritids[0] = 18;
-    set_sprite_tile(19, 19);
-    sword.spritids[1] = 19;
+    set_sprite_tile(4, 18);
+    set_sprite_prop(4, 0);
+    sword.spritids[0] = 4;
+    set_sprite_tile(5, 19);
+    set_sprite_prop(5, 0);
+    sword.spritids[1] = 5;
     
     //movesword(&sword, sword.x, sword.y);
 }
@@ -643,8 +551,9 @@ void room_0()
 
 void main()
 {   
-    room_0();
-
+    // Clean initialization after boot sequence
+    DISPLAY_OFF;
+    
     while(1)
     {
         UINT8 current_pad = joypad();
@@ -671,12 +580,19 @@ void main()
                 
                 set_sprite_data(0, 22, Girl);
                 setupgirl();
-                setupslime();
+                //setupslime();
                 setupsword();
+                room_0();  // Initialize room after sprite data is loaded
 
                 
-                OBP0_REG = 0xE0;
-                OBP1_REG = 0xE0;
+                // Palette encoding: bits 1-0 = C0, 3-2 = C1, 5-4 = C2, 7-6 = C3
+                // Shade codes: 00 = transparent, 01 = light, 10 = dark, 11 = black
+                // 0xE4 = 0b11100100 -> C3=11 (black), C2=10 (dark), C1=01 (light), C0=00 (transparent for sprites, lightest for background)
+                // 0xE0 = 0b11100000 -> C3=11 (black), C2=10 (dark), C1=00 (lightest), C0=00 (transparent for sprites, lightest for background)
+                // 0xE4 = 0b11100100 -> C3=11 (black), C2=10 (dark), C1=01 (light), C0=00 (transparent for sprites, lightest for background)
+                BGP_REG  = 0xE4; // Background palette (light fill uses C1)
+                OBP0_REG = 0xE0; // Sprite palette 0: Girl/Sword (old colors)
+                OBP1_REG = 0xE4; // Sprite palette 1: Slimes (clear, light, dark, black)
                 SHOW_SPRITES;
                 SHOW_BKG;
                 SHOW_WIN;
@@ -696,58 +612,55 @@ void main()
             }
         }
 
+        if(gamestate == 1)
+        {
         if (locktimer == 0)
         {
         if(joypad() & J_LEFT)
         {
-            moveswordl(&sword, sword.x, sword.y);
+            direction = 2;
+            sword_set_direction(&sword);
             if(girl.x > MIN_GIRL_X)
             {
-                moveswordl(&sword, sword.x, sword.y);
                 girl.x -= 2;
                 
             }
             if(girl.anim != 2 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
             {
-                moveswordl(&sword, sword.x, sword.y);
-                flipgirllw();
+                character_set_sprite(&girl, 2);
                 girl.anim = 2;
             }
             else if(girl.anim != 3 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
             {
-                moveswordl(&sword, sword.x, sword.y);
-                flipgirlls();
+                character_set_sprite(&girl, 3);
                 girl.anim = 3;
             }
-            direction = 2;
         }
         if(joypad() & J_RIGHT)
         {
-            moveswordr(&sword,sword.x, sword.y);
+            direction = 3;
+            sword_set_direction(&sword);
             if(girl.x < MAX_GIRL_X)
             {
-                moveswordr(&sword,sword.x, sword.y);
                 girl.x += 2;
                 
             }
             
             if(girl.anim != 4 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
             {
-                moveswordr(&sword, sword.x, sword.y);
-                flipgirlrw();
+                character_set_sprite(&girl, 4);
                 girl.anim = 4;
             }
             else if(girl.anim != 5 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
             {
-                moveswordr(&sword, sword.x, sword.y);
-                flipgirlrs();
+                character_set_sprite(&girl, 5);
                 girl.anim = 5;
             }
-            direction = 3;
         }
         if(joypad() & J_UP)
         {
-            moveswordu(&sword, sword.x, sword.y);
+            direction = 1;
+            sword_set_direction(&sword);
             if(girl.y > MIN_GIRL_Y)
             {
                 
@@ -755,21 +668,19 @@ void main()
             }
             if(girl.anim != 6)
             {
-                moveswordu(&sword, sword.x, sword.y);
-                flipgirlu();
+                character_set_sprite(&girl, 6);
                 girl.anim = 6;
             }
             else if(girl.anim != 7)
             {
-                moveswordu(&sword, sword.x, sword.y);
-                flipgirlun();
+                character_set_sprite(&girl, 7);
                 girl.anim = 7;
             }
-            direction = 1;
         }
         if(joypad() & J_DOWN)
         {
-            moveswordd(&sword, sword.x, sword.y);
+            direction = 0;
+            sword_set_direction(&sword);
             if(girl.y < MAX_GIRL_Y)
             {
                 
@@ -778,17 +689,14 @@ void main()
             
             if(girl.anim != 0)
             {
-                moveswordd(&sword, sword.x, sword.y);
-                flipgirl();
+                character_set_sprite(&girl, 0);
                 girl.anim = 0;
             }
             else if(girl.anim != 1)
             {
-                moveswordd(&sword, sword.x, sword.y);
-                flipgirln();
+                character_set_sprite(&girl, 1);
                 girl.anim = 1;
             }
-            direction = 0;
         }        
 
         if(joypad() & J_A)
@@ -799,8 +707,8 @@ void main()
         
         if(locktimer > 0)
         {
-            sword_slimecolision();
-            moveslime(&slime, slime.x, slime.y);
+            weapon_enemy_collision(&sword, &slime_0);
+            weapon_enemy_collision(&sword, &slime_1);
             locktimer++;
         }
         if(locktimer == ATTACK_LOCK_TIME)
@@ -808,10 +716,63 @@ void main()
             locktimer = 0;
             swordreset();
         }
+        
+        // Animate slime_0
+        if(slime_0.death == 0)
+        {
+            animate_enemy(&slime_0, 16, 17);
+        }
+        else if(slime_0.death == 1)
+        {
+            slime_0.x = 0;
+            slime_0.y = 0;
+            moveslime(&slime_0, slime_0.x, slime_0.y);
+        }
+        
+        // Animate slime_1
+        if(slime_1.death == 0)
+        {
+            animate_enemy(&slime_1, 16, 17);
+        }
+        else if(slime_1.death == 1)
+        {
+            slime_1.x = 0;
+            slime_1.y = 0;
+            moveslime(&slime_1, slime_1.x, slime_1.y);
+        }
+        
+        // Animation timer for both slimes
+        animtimer++;
+        if(animtimer == ANIM_TIMER_MAX)
+        {
+            animtimer = 0;
+            if(slime_0.anim == 0)
+            {
+                slime_0.anim = 1;
+            }
+            else if(slime_0.anim == 1)
+            {
+                slime_0.anim = 0;
+            }
+            
+            if(slime_1.anim == 0)
+            {
+                slime_1.anim = 1;
+            }
+            else if(slime_1.anim == 1)
+            {
+                slime_1.anim = 0;
+            }
+        }
+        
+        character_enemy_collision(&girl, &slime_0);
+        character_enemy_collision(&girl, &slime_1);
+        }  // end gamestate == 1
 
+        /* DISABLED: Main slime logic (using slime_0 and slime_1 instead)
         if(slime.death == 0)
         {
-            animslime();
+            animate_enemy(&slime, 16, 17);
             animtimer++;
             if(animtimer == ANIM_TIMER_MAX)
             {
@@ -824,7 +785,6 @@ void main()
                 {
                     slime.anim = 0;
                 }
-
             }
         }
         else if(slime.death == 1)
@@ -832,15 +792,21 @@ void main()
             slime.x = 0;
             slime.y = 0;
             moveslime(&slime, slime.x, slime.y);
+#if ENABLE_RESPAWN
+            spawntimer++;
+#endif
         }
-        spawntimer++;
+#if ENABLE_RESPAWN
         if(spawntimer == SPAWN_TIMER_MAX)
         {
             spawntimer = 0;
             slime.death = 0;
             setupslime();
         }
-        girl_slimecolision();
+#endif
+        character_enemy_collision(&girl, &slime);
+        */
+        
         prev_pad = current_pad;
         performantdelay(5);
         //animdelay(30);
