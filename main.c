@@ -30,6 +30,9 @@ typedef unsigned char UINT8;
 #define SLIME_WIDTH 8
 #define SLIME_HEIGHT 8
 
+// ENTITY LIMITS
+#define MAX_ENEMIES 8
+
 // TIMING CONSTANTS
 #define ANIM_TIMER_MAX 20
 #define ATTACK_LOCK_TIME 10
@@ -95,11 +98,8 @@ typedef unsigned char UINT8;
 
 struct GameCharacter girl;
 struct Weapon sword;
-struct Enemy slime;
-struct Enemy slime_0;
-struct Enemy slime_1;
-struct Enemy slime_2;
-struct Enemy slime_3;
+struct Enemy slime;  // Legacy enemy (disabled, kept for reference)
+struct Enemy enemies[MAX_ENEMIES];  // Active enemies array
 
 //Constants
 UINT8 gamestate = 0;
@@ -127,73 +127,40 @@ void movegirl(struct GameCharacter* character, UINT8 x, UINT8 y);
 void setupgirl(void);
 void setupslime(void);
 void setupsword(void);
+void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y);
 void attack(void);
 void swordreset(void);
 void room_0(void);
 
 //Normal Rooms
 
+// Helper function to initialize an enemy
+void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y)
+{
+    enemy->x = x;
+    enemy->y = y;
+    enemy->width = 8;
+    enemy->height = 8;
+    enemy->anim = 0;
+    enemy->death = 0;
+    
+    set_sprite_tile(oam_slot, 16);
+    set_sprite_prop(oam_slot, ENEMY_PALETTE);
+    enemy->spritids[0] = oam_slot;
+    
+    moveslime(enemy, x, y);
+}
+
 //Room 0 Function
 void room_0(void)
 {
     if (room == 0)
     {
-        //Room 1 Code
-            slime_0.x = 26;
-            slime_0.y = 50;
-            slime_0.width = 8;
-            slime_0.height = 8;
-            slime_0.anim = 0;
-            slime_0.death = 0;
-
-            //set_sprite_palette(16, 0xE0);
-            set_sprite_tile(22, 16);
-            set_sprite_prop(22, ENEMY_PALETTE);
-            slime_0.spritids[0] = 22;
-            
-            moveslime(&slime_0, slime_0.x, slime_0.y);
-
-            slime_1.x = 26;
-            slime_1.y = 70;
-            slime_1.width = 8;
-            slime_1.height = 8;
-            slime_1.anim = 0;
-            slime_1.death = 0;
-
-            //set_sprite_palette(16, 0xE0);
-            set_sprite_tile(23, 16);
-            set_sprite_prop(23, ENEMY_PALETTE);
-            slime_1.spritids[0] = 23;
-            
-            moveslime(&slime_1, slime_1.x, slime_1.y);
-
-            slime_2.x = 134;
-            slime_2.y = 50;
-            slime_2.width = 8;
-            slime_2.height = 8;
-            slime_2.anim = 0;
-            slime_2.death = 0;
-
-            //set_sprite_palette(16, 0xE0);
-            set_sprite_tile(24, 16);
-            set_sprite_prop(24, ENEMY_PALETTE);
-            slime_2.spritids[0] = 24;
-            
-            moveslime(&slime_2, slime_2.x, slime_2.y);
-
-            slime_3.x = 134;
-            slime_3.y = 70;
-            slime_3.width = 8;
-            slime_3.height = 8;
-            slime_3.anim = 0;
-            slime_3.death = 0;
-
-            //set_sprite_palette(16, 0xE0);
-            set_sprite_tile(25, 16);
-            set_sprite_prop(25, ENEMY_PALETTE);
-            slime_3.spritids[0] = 25;
-            
-            moveslime(&slime_3, slime_3.x, slime_3.y);
+        //Room 1 Code - Initialize 4 slime enemies
+        setup_enemy(&enemies[0], 22, 26, 50);   // Left top
+        setup_enemy(&enemies[1], 23, 26, 70);   // Left bottom
+        setup_enemy(&enemies[2], 24, 134, 50);  // Right top
+        setup_enemy(&enemies[3], 25, 134, 70);  // Right bottom
     }
 }
 
@@ -226,6 +193,18 @@ void performantdelay(UINT8 numloops)
 
 void character_enemy_collision(struct GameCharacter* character, struct Enemy* enemy)
     {
+        // Only check collision if enemy is alive
+        if(enemy->death == 1)
+        {
+            return;
+        }
+        
+        // Don't process character collision during attack (sword is active)
+        if(locktimer > 0)
+        {
+            return;
+        }
+        
         if (character->x < enemy->x + enemy->width - pad &&
         character->x + character->width - pad > enemy->x &&
         character->y < enemy->y + enemy->height - pad &&
@@ -241,10 +220,37 @@ void character_enemy_collision(struct GameCharacter* character, struct Enemy* en
     }
 void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy)
     {
-        if (weapon->x < enemy->x + enemy->width &&
-        weapon->x + weapon->width > enemy->x &&
-        weapon->y < enemy->y + enemy->height &&
-        weapon->y + enemy->height > enemy->y)
+        // Only check collision if enemy is alive
+        if(enemy->death == 1)
+        {
+            return;
+        }
+        
+        // Sword uses 2 sprites, so we need to check a larger collision box
+        // For left/right: 16 wide x 8 tall (extends 8px left from sword.x)
+        // For up/down: 8 wide x 16 tall (extends 8px up from sword.y)
+        
+        UINT8 collision_x = weapon->x;
+        UINT8 collision_y = weapon->y;
+        UINT8 collision_width = weapon->width;
+        UINT8 collision_height = weapon->height;
+        
+        // Adjust collision box based on direction
+        if(direction == 2 || direction == 3) // left or right
+        {
+            collision_x = weapon->x - 8;  // Start 8px to the left
+            collision_width = 16;  // 2 sprites wide
+        }
+        else // up or down
+        {
+            collision_y = weapon->y - 8;  // Start 8px up
+            collision_height = 16;  // 2 sprites tall
+        }
+        
+        if (collision_x < enemy->x + enemy->width &&
+        collision_x + collision_width > enemy->x &&
+        collision_y < enemy->y + enemy->height &&
+        collision_y + collision_height > enemy->y)
         {
             {
                 enemy->death = 1;
@@ -742,10 +748,10 @@ void main(void)
         
         if(locktimer > 0)
         {
-            weapon_enemy_collision(&sword, &slime_0);
-            weapon_enemy_collision(&sword, &slime_1);
-            weapon_enemy_collision(&sword, &slime_2);
-            weapon_enemy_collision(&sword, &slime_3);
+            // Weapon collision for all active enemies
+            for(UINT8 i = 0; i < 4; i++) {
+                weapon_enemy_collision(&sword, &enemies[i]);
+            }
             locktimer++;
         }
         if(locktimer == ATTACK_LOCK_TIME)
@@ -754,100 +760,37 @@ void main(void)
             swordreset();
         }
         
-        // Animate slime_0
-        if(slime_0.death == 0)
+        // Animate all enemies
+        for(UINT8 i = 0; i < 4; i++)
         {
-            animate_enemy(&slime_0, 16, 17);
-        }
-        else if(slime_0.death == 1)
-        {
-            slime_0.x = 0;
-            slime_0.y = 0;
-            moveslime(&slime_0, slime_0.x, slime_0.y);
-        }
-        
-        // Animate slime_1
-        if(slime_1.death == 0)
-        {
-            animate_enemy(&slime_1, 16, 17);
-        }
-        else if(slime_1.death == 1)
-        {
-            slime_1.x = 0;
-            slime_1.y = 0;
-            moveslime(&slime_1, slime_1.x, slime_1.y);
+            if(enemies[i].death == 0)
+            {
+                animate_enemy(&enemies[i], 16, 17);
+            }
+            else if(enemies[i].death == 1)
+            {
+                enemies[i].x = 0;
+                enemies[i].y = 0;
+                moveslime(&enemies[i], 0, 0);
+            }
         }
         
-        // Animate slime_2
-        if(slime_2.death == 0)
-        {
-            animate_enemy(&slime_2, 16, 17);
-        }
-        else if(slime_2.death == 1)
-        {
-            slime_2.x = 0;
-            slime_2.y = 0;
-            moveslime(&slime_2, slime_2.x, slime_2.y);
-        }
-        
-        // Animate slime_3
-        if(slime_3.death == 0)
-        {
-            animate_enemy(&slime_3, 16, 17);
-        }
-        else if(slime_3.death == 1)
-        {
-            slime_3.x = 0;
-            slime_3.y = 0;
-            moveslime(&slime_3, slime_3.x, slime_3.y);
-        }
-        
-        // Animation timer for all slimes
+        // Animation timer for all enemies
         animtimer++;
         if(animtimer == ANIM_TIMER_MAX)
         {
             animtimer = 0;
-            if(slime_0.anim == 0)
+            for(UINT8 i = 0; i < 4; i++)
             {
-                slime_0.anim = 1;
-            }
-            else if(slime_0.anim == 1)
-            {
-                slime_0.anim = 0;
-            }
-            
-            if(slime_1.anim == 0)
-            {
-                slime_1.anim = 1;
-            }
-            else if(slime_1.anim == 1)
-            {
-                slime_1.anim = 0;
-            }
-            
-            if(slime_2.anim == 0)
-            {
-                slime_2.anim = 1;
-            }
-            else if(slime_2.anim == 1)
-            {
-                slime_2.anim = 0;
-            }
-            
-            if(slime_3.anim == 0)
-            {
-                slime_3.anim = 1;
-            }
-            else if(slime_3.anim == 1)
-            {
-                slime_3.anim = 0;
+                enemies[i].anim = (enemies[i].anim == 0) ? 1 : 0;
             }
         }
         
-        character_enemy_collision(&girl, &slime_0);
-        character_enemy_collision(&girl, &slime_1);
-        character_enemy_collision(&girl, &slime_2);
-        character_enemy_collision(&girl, &slime_3);
+        // Character collision with all enemies
+        for(UINT8 i = 0; i < 4; i++)
+        {
+            character_enemy_collision(&girl, &enemies[i]);
+        }
         }  // end gamestate == 1
 
         /* DISABLED: Main slime logic (using slime_0 and slime_1 instead)

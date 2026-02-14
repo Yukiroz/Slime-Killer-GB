@@ -19,7 +19,7 @@ struct Weapon {
 };
 
 struct Enemy {
-    UBYTE spritids[2];
+    UBYTE spritids[4];  // Support up to 16x16 enemies (4 sprites for 2x2 grid)
     UINT8 x;
     UINT8 y;
     UINT8 width;
