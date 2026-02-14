@@ -42,6 +42,29 @@ typedef unsigned char UINT8;
 #define SPAWN_MAX_Y 120
 
 // ============================================
+// SPRITE ALLOCATION MAP (for 8 enemies max)
+// ============================================
+// 
+// VRAM (Tile Graphics Storage - 256 sprite tiles available):
+//   Tiles 0-15:   Girl sprite graphics (all directions/poses)
+//   Tiles 16-17:  Slime sprite graphics (animation frames 0-1)
+//   Tiles 18-21:  Sword sprite graphics (left/right 18-19, up/down 20-21)
+//   Tiles 22-255: Available for future use
+//
+// OAM (Sprite Slots - 40 slots maximum):
+//   Slots 0-3:    Girl (displayed as 2x2 sprite grid)
+//   Slots 4-15:   Available (12 slots)
+//   Slots 16-31:  Enemies (16 slots for up to 8 enemies, 2 sprites each for animation)
+//   Slots 32-33:  Sword sprites
+//   Slots 34-39:  Available (6 slots for future use)
+//
+// NOTE: If you add more enemies, update this map! Currently: 8 enemies max
+//
+// PALETTES:
+//   Palette 0 (OBP0_REG): Girl and Sword colors
+//   Palette 1 (OBP1_REG): Enemy colors (different from girl)
+//
+// ============================================
 
 struct GameCharacter girl;
 struct Weapon sword;
@@ -60,6 +83,7 @@ UINT8 locktimer = 0;
 UINT8 spawntimer = 0;
 UINT8 direction = 0; // 0 = down, 1 = up, 2 = left, 3 = right
 UINT8 room = 0;
+UINT8 prev_pad = 0;
 
 // Forward Declarations
 void moveslime(struct Enemy* character, UINT8 x, UINT8 y);
@@ -623,51 +647,53 @@ void main()
 
     while(1)
     {
-        if(joypad() & J_START && gamestate == 0)
+        UINT8 current_pad = joypad();
+
+        if((current_pad & J_START) && !(prev_pad & J_START))
         {
-            
-            gamestate = 1;
-            initrand(DIV_REG);
-            font_t min_font;
+            if(gamestate == 0)
+            {
+                gamestate = 1;
+                initrand(DIV_REG);
+                font_t min_font;
 
-            font_init();
-            min_font = font_load(font_min);
-            font_set(min_font);
+                font_init();
+                min_font = font_load(font_min);
+                font_set(min_font);
 
-            set_bkg_data(37, 8, backgroundtiles);
-            set_bkg_tiles(0, 0, 20, 16, backgroundmap);
+                set_bkg_data(37, 8, backgroundtiles);
+                set_bkg_tiles(0, 0, 20, 16, backgroundmap);
 
-            set_win_tiles(0, 0, 20, 2, windowmap);
-            move_win(8,128);
-            
-            
-            
-            set_sprite_data(0, 22, Girl);
-            setupgirl();
-            setupslime();
-            setupsword();
+                set_win_tiles(0, 0, 20, 2, windowmap);
+                move_win(8,128);
+                
+                
+                
+                set_sprite_data(0, 22, Girl);
+                setupgirl();
+                setupslime();
+                setupsword();
 
-            
-            OBP0_REG = 0xE0;
-            OBP1_REG = 0xE0;
-            SHOW_SPRITES;
-            SHOW_BKG;
-            SHOW_WIN;
-            DISPLAY_ON;
-        }
-        if(joypad() & J_START && gamestate == 1)
-        {
-            gamestate = 2;
-            DISPLAY_ON;
-            HIDE_BKG;
-            HIDE_SPRITES;
-        }
-        if(joypad() & J_START && gamestate == 2)
-        {
-            gamestate = 1;
-            SHOW_SPRITES;
-            SHOW_BKG;
-            DISPLAY_OFF;
+                
+                OBP0_REG = 0xE0;
+                OBP1_REG = 0xE0;
+                SHOW_SPRITES;
+                SHOW_BKG;
+                SHOW_WIN;
+                DISPLAY_ON;
+            }
+            else if(gamestate == 1)
+            {
+                gamestate = 2;
+                HIDE_BKG;
+                HIDE_SPRITES;
+            }
+            else if(gamestate == 2)
+            {
+                gamestate = 1;
+                SHOW_SPRITES;
+                SHOW_BKG;
+            }
         }
 
         if (locktimer == 0)
@@ -815,6 +841,7 @@ void main()
             setupslime();
         }
         girl_slimecolision();
+        prev_pad = current_pad;
         performantdelay(5);
         //animdelay(30);
     }
