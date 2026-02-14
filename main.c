@@ -24,6 +24,10 @@ typedef unsigned char UINT8;
 #define MIN_GIRL_Y 20
 #define MAX_GIRL_Y 113
 
+// PLAYER SPAWN
+#define PLAYER_SPAWN_X 80
+#define PLAYER_SPAWN_Y 36
+
 // ENTITY DIMENSIONS
 #define GIRL_WIDTH 16
 #define GIRL_HEIGHT 16
@@ -134,8 +138,8 @@ void animate_enemy(struct Enemy* enemy, UINT8 tile0, UINT8 tile1);
 void enemy_check_borders(struct Enemy* enemy);
 void character_set_sprite(struct GameCharacter* character, UINT8 anim_state);
 void move_enemy_small(struct Enemy* character, UINT8 x, UINT8 y);
-void movegirl(struct GameCharacter* character, UINT8 x, UINT8 y);
-void setupgirl(void);
+void move_player(struct GameCharacter* character, UINT8 x, UINT8 y);
+void setup_player(void);
 void setupslime(void);
 void setupsword(void);
 void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y);
@@ -256,7 +260,7 @@ void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 en
             }
         }
     }
-void movegirl(struct GameCharacter* character, UINT8 x, UINT8 y)
+void move_player(struct GameCharacter* character, UINT8 x, UINT8 y)
     {
         move_sprite(character->spritids[0], x, y);
         move_sprite(character->spritids[1], x + spritesize, y);
@@ -541,13 +545,13 @@ void character_set_sprite(struct GameCharacter* character, UINT8 anim_state)
             character->spritids[3] = 3;
         }
         
-        movegirl(character, character->x, character->y);
+        move_player(character, character->x, character->y);
     }
 
-void setupgirl(void)
+void setup_player(void)
     {
-        girl.x = 80;
-        girl.y = 36;
+        girl.x = PLAYER_SPAWN_X;
+        girl.y = PLAYER_SPAWN_Y;
         girl.width = 16;
         girl.height = 16;
         girl.anim = 0;
@@ -565,7 +569,7 @@ void setupgirl(void)
         set_sprite_prop(3, 0);
         girl.spritids[3] = 3;
         
-        movegirl(&girl, girl.x, girl.y);
+        move_player(&girl, girl.x, girl.y);
     }
 
 void setupslime(void)
@@ -633,7 +637,7 @@ void main(void)
                 
                 
                 set_sprite_data(0, 22, Girl);
-                setupgirl();
+                setup_player();
                 //setupslime();
                 setupsword();
                 room_0();  // Initialize room after sprite data is loaded
