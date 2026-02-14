@@ -96,12 +96,22 @@ typedef unsigned char UINT8;
 //
 // ============================================
 
+// ============================================
+// GAME ENTITIES (Struct Instances)
+// ============================================
 struct GameCharacter girl;
 struct Weapon sword;
 struct Enemy slime;  // Legacy enemy (disabled, kept for reference)
-struct Enemy enemies[MAX_ENEMIES];  // Active enemies array
 
-//Constants
+// ============================================
+// ARRAYS
+// ============================================
+struct Enemy enemies[MAX_ENEMIES];  // Active enemies array
+UINT8 hit_this_attack[MAX_ENEMIES];  // Track which enemies were hit during current attack
+
+// ============================================
+// CONSTANTS & GLOBAL STATE
+// ============================================
 UINT8 gamestate = 0;
 UINT8 score = 0;
 UBYTE spritesize = 8;
@@ -117,7 +127,7 @@ UINT8 prev_pad = 0;
 // Forward Declarations
 void performantdelay(UINT8 numloops);
 void character_enemy_collision(struct GameCharacter* character, struct Enemy* enemy);
-void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy);
+void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 enemy_index);
 void sword_set_direction(struct Weapon* weapon);
 void animate_enemy(struct Enemy* enemy, UINT8 tile0, UINT8 tile1);
 void enemy_check_borders(struct Enemy* enemy);
@@ -218,10 +228,16 @@ void character_enemy_collision(struct GameCharacter* character, struct Enemy* en
             }
         }
     }
-void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy)
+void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 enemy_index)
     {
         // Only check collision if enemy is alive
         if(enemy->death == 1)
+        {
+            return;
+        }
+        
+        // Only hit each enemy once per attack
+        if(hit_this_attack[enemy_index] == 1)
         {
             return;
         }
@@ -253,6 +269,7 @@ void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy)
         collision_y + collision_height > enemy->y)
         {
             {
+                hit_this_attack[enemy_index] = 1;
                 enemy->death = 1;
                 enemy->x = 0;
                 enemy->y = 0;
@@ -326,6 +343,12 @@ void sword_set_direction(struct Weapon* weapon)
     }
 void attack(void)
     {
+        // Reset hit tracking for new attack
+        for(UINT8 i = 0; i < MAX_ENEMIES; i++)
+        {
+            hit_this_attack[i] = 0;
+        }
+        
         sword_set_direction(&sword);
         if(direction == 0)
         {
@@ -350,6 +373,12 @@ void attack(void)
     }
 void swordreset(void)
     {
+        // Reset hit tracking for next attack
+        for(UINT8 i = 0; i < MAX_ENEMIES; i++)
+        {
+            hit_this_attack[i] = 0;
+        }
+        
         if(direction == 0)
         {
             sword.y = sword.y - 8;
@@ -750,7 +779,7 @@ void main(void)
         {
             // Weapon collision for all active enemies
             for(UINT8 i = 0; i < 4; i++) {
-                weapon_enemy_collision(&sword, &enemies[i]);
+                weapon_enemy_collision(&sword, &enemies[i], i);
             }
             locktimer++;
         }
