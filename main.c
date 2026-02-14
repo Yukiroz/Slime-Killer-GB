@@ -261,8 +261,6 @@ void movegirl(struct GameCharacter* character, UINT8 x, UINT8 y)
         move_sprite(character->spritids[2], x, y + spritesize);
         move_sprite(character->spritids[3], x + spritesize, y + spritesize);
     }
-
-
 void sword_set_direction(struct Weapon* weapon)
     {
         // Uses global direction variable: 0=down, 1=up, 2=left, 3=right
@@ -380,7 +378,6 @@ void animate_enemy(struct Enemy* enemy, UINT8 tile0, UINT8 tile1)
             set_sprite_tile(enemy->spritids[0], tile1);
         }
     }
-
 void enemy_check_borders(struct Enemy* enemy)
     {
         if (enemy->x < MIN_ENEMY_X)
@@ -406,6 +403,8 @@ void character_set_sprite(struct GameCharacter* character, UINT8 anim_state)
     {
         // anim_state: 0=down_walk, 1=down_stand, 2=left_walk, 3=left_stand,
         //             4=right_walk, 5=right_stand, 6=up_walk, 7=up_stand
+        
+        character->anim = anim_state;  // Set animation state in struct
         
         if(anim_state == 0) // down walking
         {
@@ -672,12 +671,10 @@ void main(void)
             if(girl.anim != 2 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
             {
                 character_set_sprite(&girl, 2);
-                girl.anim = 2;
             }
             else if(girl.anim != 3 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
             {
                 character_set_sprite(&girl, 3);
-                girl.anim = 3;
             }
         }
         if(joypad() & J_RIGHT)
@@ -693,12 +690,10 @@ void main(void)
             if(girl.anim != 4 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
             {
                 character_set_sprite(&girl, 4);
-                girl.anim = 4;
             }
             else if(girl.anim != 5 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
             {
                 character_set_sprite(&girl, 5);
-                girl.anim = 5;
             }
         }
         if(joypad() & J_UP)
@@ -713,12 +708,10 @@ void main(void)
             if(girl.anim != 6)
             {
                 character_set_sprite(&girl, 6);
-                girl.anim = 6;
             }
             else if(girl.anim != 7)
             {
                 character_set_sprite(&girl, 7);
-                girl.anim = 7;
             }
         }
         if(joypad() & J_DOWN)
@@ -734,12 +727,10 @@ void main(void)
             if(girl.anim != 0)
             {
                 character_set_sprite(&girl, 0);
-                girl.anim = 0;
             }
             else if(girl.anim != 1)
             {
                 character_set_sprite(&girl, 1);
-                girl.anim = 1;
             }
         }        
 
