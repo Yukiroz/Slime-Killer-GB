@@ -127,6 +127,7 @@ UINT8 prev_pad = 0;
 // Forward Declarations
 void performantdelay(UINT8 numloops);
 void character_enemy_collision(struct GameCharacter* character, struct Enemy* enemy);
+void hide_character_sprites(struct GameCharacter* character);
 void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 enemy_index);
 void sword_set_direction(struct Weapon* weapon);
 void animate_enemy(struct Enemy* enemy, UINT8 tile0, UINT8 tile1);
@@ -220,12 +221,15 @@ void character_enemy_collision(struct GameCharacter* character, struct Enemy* en
         character->y < enemy->y + enemy->height - pad &&
         character->y + character->height - pad > enemy->y)
         {
-            {
-                hide_sprite(character->spritids[0]);
-                hide_sprite(character->spritids[1]);
-                hide_sprite(character->spritids[2]);
-                hide_sprite(character->spritids[3]);
-            }
+            hide_character_sprites(character);
+        }
+    }
+
+void hide_character_sprites(struct GameCharacter* character)
+    {
+        for(UINT8 i = 0; i < 4; i++)
+        {
+            hide_sprite(character->spritids[i]);
         }
     }
 void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 enemy_index)
