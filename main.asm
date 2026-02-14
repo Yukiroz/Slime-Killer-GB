@@ -20,7 +20,6 @@
 	.globl _flipgirln
 	.globl _flipgirl
 	.globl _animslime
-	.globl _moveslime
 	.globl _swordreset
 	.globl _attack
 	.globl _moveswordd
@@ -31,6 +30,7 @@
 	.globl _sword_slimecolision
 	.globl _girl_slimecolision
 	.globl _performantdelay
+	.globl _room_0
 	.globl _font_set
 	.globl _font_load
 	.globl _font_init
@@ -43,6 +43,7 @@
 	.globl _display_off
 	.globl _wait_vbl_done
 	.globl _joypad
+	.globl _room
 	.globl _direction
 	.globl _spawntimer
 	.globl _locktimer
@@ -56,9 +57,12 @@
 	.globl _backgroundmap
 	.globl _backgroundtiles
 	.globl _Girl
+	.globl _slime_1
+	.globl _slime_0
 	.globl _slime
 	.globl _sword
 	.globl _girl
+	.globl _moveslime
 ;--------------------------------------------------------
 ; special function registers
 ;--------------------------------------------------------
@@ -72,6 +76,10 @@ _girl::
 _sword::
 	.ds 7
 _slime::
+	.ds 8
+_slime_0::
+	.ds 8
+_slime_1::
 	.ds 8
 ;--------------------------------------------------------
 ; ram data
@@ -103,6 +111,8 @@ _spawntimer::
 	.ds 1
 _direction::
 	.ds 1
+_room::
+	.ds 1
 ;--------------------------------------------------------
 ; absolute external ram data
 ;--------------------------------------------------------
@@ -123,31 +133,118 @@ _direction::
 ; code
 ;--------------------------------------------------------
 	.area _CODE
-;main.c:31: void performantdelay(UINT8 numloops)
+;main.c:39: void room_0()
+;	---------------------------------
+; Function room_0
+; ---------------------------------
+_room_0::
+;main.c:41: if (room == 0)
+	ld	a, (#_room)
+	or	a, a
+	ret	NZ
+;main.c:44: slime_0.x = 26;
+	ld	hl, #(_slime_0 + 2)
+	ld	(hl), #0x1a
+;main.c:45: slime_0.y = 26;
+	ld	bc, #_slime_0 + 3
+;main.c:46: slime_0.width = 8;
+	inc	hl
+	inc	hl
+	ld	a, #0x1a
+	ld	(bc), a
+	ld	(hl), #0x08
+;main.c:47: slime_0.height = 8;
+	ld	hl, #_slime_0 + 5
+	ld	(hl), #0x08
+;main.c:48: slime_0.anim = 0;
+	ld	hl, #_slime_0 + 6
+	ld	(hl), #0x00
+;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
+	ld	hl, #(_shadow_OAM + 66)
+	ld	(hl), #0x10
+;main.c:52: slime_0.spritids[0] = 16;
+	ld	hl, #_slime_0
+	ld	(hl), #0x10
+;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
+	ld	hl, #(_shadow_OAM + 70)
+	ld	(hl), #0x11
+;main.c:54: slime_0.spritids[1] = 17;
+	ld	hl, #_slime_0 + 1
+	ld	(hl), #0x11
+;main.c:56: moveslime(&slime_0, slime_0.x, slime_0.y);
+	ld	a, (bc)
+	ld	hl, #(_slime_0 + 2)
+	ld	c, (hl)
+	push	af
+	inc	sp
+	ld	a, c
+	ld	de, #_slime_0
+	call	_moveslime
+;main.c:58: slime_1.x = 26;
+	ld	hl, #(_slime_1 + 2)
+	ld	(hl), #0x1a
+;main.c:59: slime_1.y = 26;
+	ld	bc, #_slime_1 + 3
+;main.c:60: slime_1.width = 8;
+	inc	hl
+	inc	hl
+	ld	a, #0x1a
+	ld	(bc), a
+	ld	(hl), #0x08
+;main.c:61: slime_1.height = 8;
+	ld	hl, #_slime_1 + 5
+	ld	(hl), #0x08
+;main.c:62: slime_1.anim = 0;
+	ld	hl, #_slime_1 + 6
+	ld	(hl), #0x00
+;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
+	ld	hl, #(_shadow_OAM + 66)
+	ld	(hl), #0x10
+;main.c:66: slime_1.spritids[0] = 16;
+	ld	hl, #_slime_1
+	ld	(hl), #0x10
+;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
+	ld	hl, #(_shadow_OAM + 70)
+	ld	(hl), #0x11
+;main.c:68: slime_1.spritids[1] = 17;
+	ld	hl, #_slime_1 + 1
+	ld	(hl), #0x11
+;main.c:70: moveslime(&slime_1, slime_1.x, slime_1.y);
+	ld	a, (bc)
+	ld	hl, #(_slime_1 + 2)
+	ld	c, (hl)
+	push	af
+	inc	sp
+	ld	a, c
+	ld	de, #_slime_1
+	call	_moveslime
+;main.c:72: }
+	ret
+;main.c:76: void performantdelay(UINT8 numloops)
 ;	---------------------------------
 ; Function performantdelay
 ; ---------------------------------
 _performantdelay::
 	ld	c, a
-;main.c:34: for(i = 0; i < numloops; i++)
+;main.c:79: for(i = 0; i < numloops; i++)
 	ld	b, #0x00
 00103$:
 	ld	a, b
 	sub	a, c
 	ret	NC
-;main.c:36: wait_vbl_done();
+;main.c:81: wait_vbl_done();
 	call	_wait_vbl_done
-;main.c:34: for(i = 0; i < numloops; i++)
+;main.c:79: for(i = 0; i < numloops; i++)
 	inc	b
-;main.c:38: }
+;main.c:83: }
 	jr	00103$
-;main.c:56: void girl_slimecolision()
+;main.c:101: void girl_slimecolision()
 ;	---------------------------------
 ; Function girl_slimecolision
 ; ---------------------------------
 _girl_slimecolision::
 	add	sp, #-7
-;main.c:58: if (girl.x < slime.x + slime.width - pad &&
+;main.c:103: if (girl.x < slime.x + slime.width - pad &&
 	ld	a, (#(_girl + 4) + 0)
 	ldhl	sp,	#2
 	ld	(hl), a
@@ -202,7 +299,7 @@ _girl_slimecolision::
 	scf
 00141$:
 	jp	NC, 00110$
-;main.c:59: girl.x + girl.width - pad > slime.x &&
+;main.c:104: girl.x + girl.width - pad > slime.x &&
 	ld	hl, #_girl + 6
 	ld	l, (hl)
 	ld	h, #0x00
@@ -237,7 +334,7 @@ _girl_slimecolision::
 	scf
 00143$:
 	jp	NC, 00110$
-;main.c:60: girl.y < slime.y + slime.height - pad &&
+;main.c:105: girl.y < slime.y + slime.height - pad &&
 	ld	a, (#(_girl + 5) + 0)
 	ldhl	sp,	#2
 	ld	(hl), a
@@ -288,7 +385,7 @@ _girl_slimecolision::
 	scf
 00145$:
 	jr	NC, 00110$
-;main.c:61: girl.y + girl.height - pad > slime.y)
+;main.c:106: girl.y + girl.height - pad > slime.y)
 	ld	hl, #_girl + 7
 	ld	l, (hl)
 	ld	h, #0x00
@@ -323,7 +420,7 @@ _girl_slimecolision::
 	scf
 00147$:
 	jr	NC, 00110$
-;main.c:64: hide_sprite(girl.spritids[0]);
+;main.c:109: hide_sprite(girl.spritids[0]);
 	ld	hl, #_girl
 	ld	c, (hl)
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -335,7 +432,7 @@ _girl_slimecolision::
 	add	hl, hl
 	add	hl, de
 	ld	(hl), #0x00
-;main.c:65: hide_sprite(girl.spritids[1]);
+;main.c:110: hide_sprite(girl.spritids[1]);
 	ld	hl, #_girl + 1
 	ld	e, (hl)
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -347,7 +444,7 @@ _girl_slimecolision::
 	add	hl, hl
 	add	hl, bc
 	ld	(hl), #0x00
-;main.c:66: hide_sprite(girl.spritids[2]);
+;main.c:111: hide_sprite(girl.spritids[2]);
 	ld	hl, #_girl + 2
 	ld	e, (hl)
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -359,7 +456,7 @@ _girl_slimecolision::
 	add	hl, hl
 	add	hl, bc
 	ld	(hl), #0x00
-;main.c:67: hide_sprite(girl.spritids[3]);
+;main.c:112: hide_sprite(girl.spritids[3]);
 	ld	hl, #_girl + 3
 	ld	e, (hl)
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -371,18 +468,18 @@ _girl_slimecolision::
 	add	hl, hl
 	add	hl, bc
 	ld	(hl), #0x00
-;main.c:67: hide_sprite(girl.spritids[3]);
+;main.c:112: hide_sprite(girl.spritids[3]);
 00110$:
-;main.c:70: }
+;main.c:115: }
 	add	sp, #7
 	ret
-;main.c:71: void sword_slimecolision()
+;main.c:116: void sword_slimecolision()
 ;	---------------------------------
 ; Function sword_slimecolision
 ; ---------------------------------
 _sword_slimecolision::
 	add	sp, #-4
-;main.c:73: if (sword.x < slime.x + slime.width &&
+;main.c:118: if (sword.x < slime.x + slime.width &&
 	ld	hl, #_sword + 2
 	ld	c, (hl)
 	ld	a, (#(_slime + 2) + 0)
@@ -410,7 +507,7 @@ _sword_slimecolision::
 	ld	a, b
 	sbc	a, (hl)
 	jr	NC, 00106$
-;main.c:74: sword.x + sword.width > slime.x &&
+;main.c:119: sword.x + sword.width > slime.x &&
 	ld	hl, #_sword + 4
 	ld	l, (hl)
 	ld	h, #0x00
@@ -423,7 +520,7 @@ _sword_slimecolision::
 	ld	a, (hl)
 	sbc	a, b
 	jr	NC, 00106$
-;main.c:75: sword.y < slime.y + slime.height &&
+;main.c:120: sword.y < slime.y + slime.height &&
 	ld	hl, #_sword + 3
 	ld	c, (hl)
 	ld	a, (#(_slime + 3) + 0)
@@ -451,7 +548,7 @@ _sword_slimecolision::
 	ld	a, b
 	sbc	a, (hl)
 	jr	NC, 00106$
-;main.c:76: sword.y + sword.height > slime.y)
+;main.c:121: sword.y + sword.height > slime.y)
 	ld	hl, #_sword + 5
 	ld	l, (hl)
 	ld	h, #0x00
@@ -464,21 +561,21 @@ _sword_slimecolision::
 	ld	a, (hl)
 	sbc	a, b
 	jr	NC, 00106$
-;main.c:79: slime.death = 1;
+;main.c:124: slime.death = 1;
 	ld	hl, #_slime + 7
 	ld	(hl), #0x01
-;main.c:80: slime.x = 0;
+;main.c:125: slime.x = 0;
 	ld	hl, #(_slime + 2)
-;main.c:81: slime.y = 0;
+;main.c:126: slime.y = 0;
 	xor	a, a
 	ld	(hl+), a
 	ld	(hl), a
-;main.c:82: score = score ++;
+;main.c:127: score = score ++;
 00106$:
-;main.c:85: }
+;main.c:130: }
 	add	sp, #4
 	ret
-;main.c:86: void movegirl(struct GameCharacter* character, UINT8 x, UINT8 y)
+;main.c:131: void movegirl(struct GameCharacter* character, UINT8 x, UINT8 y)
 ;	---------------------------------
 ; Function movegirl
 ; ---------------------------------
@@ -486,7 +583,7 @@ _movegirl::
 	dec	sp
 	ldhl	sp,	#0
 	ld	(hl), a
-;main.c:88: move_sprite(character->spritids[0], x, y);
+;main.c:133: move_sprite(character->spritids[0], x, y);
 	ld	a, (de)
 	ld	c, a
 ;c:\gbdk\include\gb\gb.h:1973: OAM_item_t * itm = &shadow_OAM[nb];
@@ -507,7 +604,7 @@ _movegirl::
 	ldhl	sp,	#0
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:89: move_sprite(character->spritids[1], x + spritesize, y);
+;main.c:134: move_sprite(character->spritids[1], x + spritesize, y);
 	ld	a, (hl)
 	ld	hl, #_spritesize
 	add	a, (hl)
@@ -533,7 +630,7 @@ _movegirl::
 	pop	hl
 	ld	(hl+), a
 	ld	(hl), c
-;main.c:90: move_sprite(character->spritids[2], x, y + spritesize);
+;main.c:135: move_sprite(character->spritids[2], x, y + spritesize);
 	ldhl	sp,	#3
 	ld	a, (hl)
 	ld	hl, #_spritesize
@@ -562,7 +659,7 @@ _movegirl::
 	ldhl	sp,	#0
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:91: move_sprite(character->spritids[3], x + spritesize, y + spritesize);
+;main.c:136: move_sprite(character->spritids[3], x + spritesize, y + spritesize);
 	ldhl	sp,	#3
 	ld	a, (hl)
 	ld	hl, #_spritesize
@@ -588,13 +685,13 @@ _movegirl::
 	ld	(hl), b
 	inc	hl
 	ld	(hl), c
-;main.c:91: move_sprite(character->spritids[3], x + spritesize, y + spritesize);
-;main.c:92: }
+;main.c:136: move_sprite(character->spritids[3], x + spritesize, y + spritesize);
+;main.c:137: }
 	inc	sp
 	pop	hl
 	inc	sp
 	jp	(hl)
-;main.c:95: void moveswordl(struct Weapon* character, UINT8 x, UINT8 y)
+;main.c:140: void moveswordl(struct Weapon* character, UINT8 x, UINT8 y)
 ;	---------------------------------
 ; Function moveswordl
 ; ---------------------------------
@@ -604,11 +701,11 @@ _moveswordl::
 	ld	b, d
 	ldhl	sp,	#0
 	ld	(hl), a
-;main.c:98: sword.x = girl.x - 3;
+;main.c:143: sword.x = girl.x - 3;
 	ld	a, (#(_girl + 4) + 0)
 	add	a, #0xfd
 	ld	hl, #(_sword + 2)
-;main.c:99: sword.y = girl.y + 8;
+;main.c:144: sword.y = girl.y + 8;
 	ld	(hl+), a
 	ld	a, (#(_girl + 5) + 0)
 	add	a, #0x08
@@ -619,7 +716,7 @@ _moveswordl::
 	ld	a, #0x12
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:102: sword.spritids[0] = 18;
+;main.c:147: sword.spritids[0] = 18;
 	ld	hl, #_sword
 	ld	(hl), #0x12
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -628,10 +725,10 @@ _moveswordl::
 	ld	a, #0x13
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:105: sword.spritids[1] = 19;
+;main.c:150: sword.spritids[1] = 19;
 	ld	hl, #_sword + 1
 	ld	(hl), #0x13
-;main.c:106: move_sprite(character->spritids[0], x, y);
+;main.c:151: move_sprite(character->spritids[0], x, y);
 	ldhl	sp,	#3
 	ld	d, (hl)
 	ld	a, (bc)
@@ -656,7 +753,7 @@ _moveswordl::
 	ld	a, (hl)
 	pop	hl
 	ld	(hl), a
-;main.c:107: move_sprite(character->spritids[1], x - spritesize, y);
+;main.c:152: move_sprite(character->spritids[1], x - spritesize, y);
 	ldhl	sp,	#0
 	ld	a, (hl)
 	ld	hl, #_spritesize
@@ -680,13 +777,13 @@ _moveswordl::
 	ld	(hl), #0x00
 	ld	hl, #(_shadow_OAM + 84)
 	ld	(hl), #0x00
-;main.c:109: hide_sprite(21);
-;main.c:111: }
+;main.c:154: hide_sprite(21);
+;main.c:156: }
 	inc	sp
 	pop	hl
 	inc	sp
 	jp	(hl)
-;main.c:112: void moveswordr(struct Weapon* character, UINT8 x, UINT8 y)
+;main.c:157: void moveswordr(struct Weapon* character, UINT8 x, UINT8 y)
 ;	---------------------------------
 ; Function moveswordr
 ; ---------------------------------
@@ -696,11 +793,11 @@ _moveswordr::
 	ld	b, d
 	ldhl	sp,	#0
 	ld	(hl), a
-;main.c:114: sword.x = girl.x + 21;
+;main.c:159: sword.x = girl.x + 21;
 	ld	a, (#(_girl + 4) + 0)
 	add	a, #0x15
 	ld	hl, #(_sword + 2)
-;main.c:115: sword.y = girl.y + 8;
+;main.c:160: sword.y = girl.y + 8;
 	ld	(hl+), a
 	ld	a, (#(_girl + 5) + 0)
 	add	a, #0x08
@@ -711,7 +808,7 @@ _moveswordr::
 	ld	a, #0x12
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:118: sword.spritids[1] = 18;
+;main.c:163: sword.spritids[1] = 18;
 	ld	hl, #_sword + 1
 	ld	(hl), #0x12
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -720,10 +817,10 @@ _moveswordr::
 	ld	a, #0x13
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:121: sword.spritids[0] = 19;
+;main.c:166: sword.spritids[0] = 19;
 	ld	hl, #_sword
 	ld	(hl), #0x13
-;main.c:122: move_sprite(character->spritids[0], x, y);
+;main.c:167: move_sprite(character->spritids[0], x, y);
 	ldhl	sp,	#3
 	ld	d, (hl)
 	ld	a, (bc)
@@ -748,7 +845,7 @@ _moveswordr::
 	ld	a, (hl)
 	pop	hl
 	ld	(hl), a
-;main.c:123: move_sprite(character->spritids[1], x - spritesize, y);
+;main.c:168: move_sprite(character->spritids[1], x - spritesize, y);
 	ldhl	sp,	#0
 	ld	a, (hl)
 	ld	hl, #_spritesize
@@ -772,13 +869,13 @@ _moveswordr::
 	ld	(hl), #0x00
 	ld	hl, #(_shadow_OAM + 84)
 	ld	(hl), #0x00
-;main.c:125: hide_sprite(21);
-;main.c:126: }
+;main.c:170: hide_sprite(21);
+;main.c:171: }
 	inc	sp
 	pop	hl
 	inc	sp
 	jp	(hl)
-;main.c:127: void moveswordu(struct Weapon* character, UINT8 x, UINT8 y)
+;main.c:172: void moveswordu(struct Weapon* character, UINT8 x, UINT8 y)
 ;	---------------------------------
 ; Function moveswordu
 ; ---------------------------------
@@ -788,11 +885,11 @@ _moveswordu::
 	ld	b, d
 	ldhl	sp,	#0
 	ld	(hl), a
-;main.c:129: sword.x = girl.x + 9;
+;main.c:174: sword.x = girl.x + 9;
 	ld	a, (#(_girl + 4) + 0)
 	add	a, #0x09
 	ld	hl, #(_sword + 2)
-;main.c:130: sword.y = girl.y;
+;main.c:175: sword.y = girl.y;
 	ld	(hl+), a
 	ld	a, (#(_girl + 5) + 0)
 	ld	(hl), a
@@ -802,7 +899,7 @@ _moveswordu::
 	ld	a, #0x14
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:133: sword.spritids[0] = 20;
+;main.c:178: sword.spritids[0] = 20;
 	ld	hl, #_sword
 	ld	(hl), #0x14
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -811,10 +908,10 @@ _moveswordu::
 	ld	a, #0x15
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:136: sword.spritids[1] = 21;
+;main.c:181: sword.spritids[1] = 21;
 	ld	hl, #_sword + 1
 	ld	(hl), #0x15
-;main.c:137: move_sprite(character->spritids[0], x, y);
+;main.c:182: move_sprite(character->spritids[0], x, y);
 	ldhl	sp,	#3
 	ld	e, (hl)
 	ld	a, (bc)
@@ -839,7 +936,7 @@ _moveswordu::
 	ld	a, (hl)
 	pop	hl
 	ld	(hl), a
-;main.c:138: move_sprite(character->spritids[1], x, y - spritesize);
+;main.c:183: move_sprite(character->spritids[1], x, y - spritesize);
 	ld	a, e
 	ld	hl, #_spritesize
 	sub	a, (hl)
@@ -867,13 +964,13 @@ _moveswordu::
 	ld	(hl), #0x00
 	ld	hl, #(_shadow_OAM + 76)
 	ld	(hl), #0x00
-;main.c:140: hide_sprite(19);
-;main.c:141: }
+;main.c:185: hide_sprite(19);
+;main.c:186: }
 	inc	sp
 	pop	hl
 	inc	sp
 	jp	(hl)
-;main.c:142: void moveswordd(struct Weapon* character, UINT8 x, UINT8 y)
+;main.c:187: void moveswordd(struct Weapon* character, UINT8 x, UINT8 y)
 ;	---------------------------------
 ; Function moveswordd
 ; ---------------------------------
@@ -883,12 +980,12 @@ _moveswordd::
 	ld	b, d
 	ldhl	sp,	#0
 	ld	(hl), a
-;main.c:144: sword.x = girl.x - 2;
+;main.c:189: sword.x = girl.x - 2;
 	ld	a, (#(_girl + 4) + 0)
 	dec	a
 	dec	a
 	ld	hl, #(_sword + 2)
-;main.c:145: sword.y = girl.y + 20;
+;main.c:190: sword.y = girl.y + 20;
 	ld	(hl+), a
 	ld	a, (#(_girl + 5) + 0)
 	add	a, #0x14
@@ -899,7 +996,7 @@ _moveswordd::
 	ld	a, #0x14
 	ld	(hl+), a
 	ld	(hl), #0x40
-;main.c:148: sword.spritids[1] = 20;
+;main.c:193: sword.spritids[1] = 20;
 	ld	hl, #_sword + 1
 	ld	(hl), #0x14
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -908,10 +1005,10 @@ _moveswordd::
 	ld	a, #0x15
 	ld	(hl+), a
 	ld	(hl), #0x40
-;main.c:151: sword.spritids[0] = 21;
+;main.c:196: sword.spritids[0] = 21;
 	ld	hl, #_sword
 	ld	(hl), #0x15
-;main.c:152: move_sprite(character->spritids[0], x, y);
+;main.c:197: move_sprite(character->spritids[0], x, y);
 	ldhl	sp,	#3
 	ld	e, (hl)
 	ld	a, (bc)
@@ -936,7 +1033,7 @@ _moveswordd::
 	ld	a, (hl)
 	pop	hl
 	ld	(hl), a
-;main.c:153: move_sprite(character->spritids[1], x , y - spritesize);
+;main.c:198: move_sprite(character->spritids[1], x , y - spritesize);
 	ld	a, e
 	ld	hl, #_spritesize
 	sub	a, (hl)
@@ -964,22 +1061,22 @@ _moveswordd::
 	ld	(hl), #0x00
 	ld	hl, #(_shadow_OAM + 76)
 	ld	(hl), #0x00
-;main.c:155: hide_sprite(19);
-;main.c:156: }
+;main.c:200: hide_sprite(19);
+;main.c:201: }
 	inc	sp
 	pop	hl
 	inc	sp
 	jp	(hl)
-;main.c:157: void attack()
+;main.c:202: void attack()
 ;	---------------------------------
 ; Function attack
 ; ---------------------------------
 _attack::
-;main.c:159: if(direction == 0)
+;main.c:204: if(direction == 0)
 	ld	a, (#_direction)
 	or	a, a
 	jr	NZ, 00110$
-;main.c:161: moveswordd(&sword, sword.x, sword.y);
+;main.c:206: moveswordd(&sword, sword.x, sword.y);
 	ld	bc, #_sword + 3
 	ld	a, (bc)
 	ld	hl, #_sword + 2
@@ -991,17 +1088,17 @@ _attack::
 	ld	de, #_sword
 	call	_moveswordd
 	pop	bc
-;main.c:162: sword.y = sword.y + 6;
+;main.c:207: sword.y = sword.y + 6;
 	ld	a, (bc)
 	add	a, #0x06
 	ld	(bc), a
 	jr	00111$
 00110$:
-;main.c:164: else if(direction == 1)
+;main.c:209: else if(direction == 1)
 	ld	a, (#_direction)
 	dec	a
 	jr	NZ, 00107$
-;main.c:166: moveswordu(&sword, sword.x, sword.y);
+;main.c:211: moveswordu(&sword, sword.x, sword.y);
 	ld	hl, #_sword + 3
 	ld	b, (hl)
 	ld	de, #_sword + 2
@@ -1012,17 +1109,17 @@ _attack::
 	ld	de, #_sword
 	call	_moveswordu
 	pop	hl
-;main.c:167: sword.y = sword.y - 6;
+;main.c:212: sword.y = sword.y - 6;
 	ld	a, (hl)
 	add	a, #0xfa
 	ld	(hl), a
 	jr	00111$
 00107$:
-;main.c:169: else if(direction == 2)
+;main.c:214: else if(direction == 2)
 	ld	a, (#_direction)
 	sub	a, #0x02
 	jr	NZ, 00104$
-;main.c:171: moveswordl(&sword, sword.x, sword.y);
+;main.c:216: moveswordl(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	hl, #_sword + 2
@@ -1033,17 +1130,17 @@ _attack::
 	ld	de, #_sword
 	call	_moveswordl
 	pop	hl
-;main.c:172: sword.x = sword.x - 6;
+;main.c:217: sword.x = sword.x - 6;
 	ld	a, (hl)
 	add	a, #0xfa
 	ld	(hl), a
 	jr	00111$
 00104$:
-;main.c:174: else if(direction == 3)
+;main.c:219: else if(direction == 3)
 	ld	a, (#_direction)
 	sub	a, #0x03
 	jr	NZ, 00111$
-;main.c:176: moveswordr(&sword, sword.x, sword.y);
+;main.c:221: moveswordr(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	hl, #_sword + 2
@@ -1054,35 +1151,35 @@ _attack::
 	ld	de, #_sword
 	call	_moveswordr
 	pop	hl
-;main.c:177: sword.x = sword.x + 6;
+;main.c:222: sword.x = sword.x + 6;
 	ld	a, (hl)
 	add	a, #0x06
 	ld	(hl), a
 00111$:
-;main.c:179: if (locktimer == 0)
+;main.c:224: if (locktimer == 0)
 	ld	hl, #_locktimer
 	ld	a, (hl)
 	or	a, a
 	ret	NZ
-;main.c:181: locktimer ++;
+;main.c:226: locktimer ++;
 	inc	(hl)
-;main.c:183: }
+;main.c:228: }
 	ret
-;main.c:184: void swordreset()
+;main.c:229: void swordreset()
 ;	---------------------------------
 ; Function swordreset
 ; ---------------------------------
 _swordreset::
-;main.c:186: if(direction == 0)
+;main.c:231: if(direction == 0)
 	ld	a, (#_direction)
 	or	a, a
 	jr	NZ, 00110$
-;main.c:188: sword.y = sword.y - 8;
+;main.c:233: sword.y = sword.y - 8;
 	ld	hl, #_sword + 3
 	ld	a, (hl)
 	add	a, #0xf8
 	ld	(hl), a
-;main.c:189: moveswordd(&sword, sword.x, sword.y);
+;main.c:234: moveswordd(&sword, sword.x, sword.y);
 	ld	h, (hl)
 	ld	a, (#(_sword + 2) + 0)
 	push	hl
@@ -1091,16 +1188,16 @@ _swordreset::
 	call	_moveswordd
 	ret
 00110$:
-;main.c:191: else if(direction == 1)
+;main.c:236: else if(direction == 1)
 	ld	a, (#_direction)
 	dec	a
 	jr	NZ, 00107$
-;main.c:193: sword.y = sword.y + 8;
+;main.c:238: sword.y = sword.y + 8;
 	ld	hl, #_sword + 3
 	ld	a, (hl)
 	add	a, #0x08
 	ld	(hl), a
-;main.c:194: moveswordu(&sword, sword.x, sword.y);
+;main.c:239: moveswordu(&sword, sword.x, sword.y);
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
 	push	bc
@@ -1109,16 +1206,16 @@ _swordreset::
 	call	_moveswordu
 	ret
 00107$:
-;main.c:196: else if(direction == 2)
+;main.c:241: else if(direction == 2)
 	ld	a, (#_direction)
 	sub	a, #0x02
 	jr	NZ, 00104$
-;main.c:198: sword.x = sword.x + 8;
+;main.c:243: sword.x = sword.x + 8;
 	ld	hl, #_sword + 2
 	ld	a, (hl)
 	add	a, #0x08
 	ld	(hl), a
-;main.c:199: moveswordl(&sword, sword.x, sword.y);
+;main.c:244: moveswordl(&sword, sword.x, sword.y);
 	ld	bc, #_sword + 3
 	ld	a, (bc)
 	ld	c, (hl)
@@ -1129,16 +1226,16 @@ _swordreset::
 	call	_moveswordl
 	ret
 00104$:
-;main.c:201: else if(direction == 3)
+;main.c:246: else if(direction == 3)
 	ld	a, (#_direction)
 	sub	a, #0x03
 	ret	NZ
-;main.c:203: sword.x = sword.x - 8;
+;main.c:248: sword.x = sword.x - 8;
 	ld	hl, #_sword + 2
 	ld	a, (hl)
 	add	a, #0xf8
 	ld	(hl), a
-;main.c:204: moveswordr(&sword, sword.x, sword.y);
+;main.c:249: moveswordr(&sword, sword.x, sword.y);
 	ld	bc, #_sword + 3
 	ld	a, (bc)
 	ld	c, (hl)
@@ -1147,15 +1244,15 @@ _swordreset::
 	ld	a, c
 	ld	de, #_sword
 	call	_moveswordr
-;main.c:206: }
+;main.c:251: }
 	ret
-;main.c:207: void moveslime(struct Enemy* character, UINT8 x, UINT8 y)
+;main.c:252: void moveslime(struct Enemy* character, UINT8 x, UINT8 y)
 ;	---------------------------------
 ; Function moveslime
 ; ---------------------------------
 _moveslime::
 	ld	c, a
-;main.c:209: move_sprite(character->spritids[0], x, y);
+;main.c:254: move_sprite(character->spritids[0], x, y);
 	ldhl	sp,	#2
 	ld	b, (hl)
 	ld	a, (de)
@@ -1170,17 +1267,17 @@ _moveslime::
 	ld	(hl), b
 	inc	hl
 	ld	(hl), c
-;main.c:209: move_sprite(character->spritids[0], x, y);
-;main.c:210: }
+;main.c:254: move_sprite(character->spritids[0], x, y);
+;main.c:255: }
 	pop	hl
 	inc	sp
 	jp	(hl)
-;main.c:211: void animslime()
+;main.c:256: void animslime()
 ;	---------------------------------
 ; Function animslime
 ; ---------------------------------
 _animslime::
-;main.c:213: if(slime.anim == 0)
+;main.c:258: if(slime.anim == 0)
 	ld	bc, #_slime+0
 	ld	a, (#(_slime + 6) + 0)
 	or	a, a
@@ -1188,13 +1285,13 @@ _animslime::
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 70)
 	ld	(hl), #0x11
-;main.c:216: slime.spritids[0] = 17;
+;main.c:261: slime.spritids[0] = 17;
 	ld	a, #0x11
 	ld	(bc), a
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
 	ld	hl, #(_shadow_OAM + 64)
 	ld	(hl), #0x00
-;main.c:218: moveslime(&slime, slime.x, slime.y);
+;main.c:263: moveslime(&slime, slime.x, slime.y);
 	ld	a, (#(_slime + 3) + 0)
 	ld	l, c
 	ld	h, b
@@ -1209,12 +1306,12 @@ _animslime::
 	call	_moveslime
 	ret
 00104$:
-;main.c:220: else if(slime.anim == 1)
+;main.c:265: else if(slime.anim == 1)
 	dec	a
 	ret	NZ
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 66)
-;main.c:223: slime.spritids[0] = 16;
+;main.c:268: slime.spritids[0] = 16;
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
 	ld	a, #0x10
 	ld	(hl+), a
@@ -1222,7 +1319,7 @@ _animslime::
 	ld	a, #0x10
 	ld	(bc), a
 	ld	(hl), #0x00
-;main.c:225: moveslime(&slime, slime.x, slime.y);
+;main.c:270: moveslime(&slime, slime.x, slime.y);
 	ld	hl, #(_slime + 3)
 	ld	h, (hl)
 	ld	e, c
@@ -1235,9 +1332,9 @@ _animslime::
 	ld	e, c
 	ld	d, b
 	call	_moveslime
-;main.c:227: }
+;main.c:272: }
 	ret
-;main.c:230: void flipgirl()
+;main.c:275: void flipgirl()
 ;	---------------------------------
 ; Function flipgirl
 ; ---------------------------------
@@ -1245,13 +1342,13 @@ _flipgirl::
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 2)
 	ld	(hl), #0x00
-;main.c:234: girl.spritids[0] = 0;
+;main.c:279: girl.spritids[0] = 0;
 	ld	hl, #_girl
 	ld	(hl), #0x00
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 6)
 	ld	(hl), #0x01
-;main.c:237: girl.spritids[1] = 1;
+;main.c:282: girl.spritids[1] = 1;
 	ld	hl, #_girl + 1
 	ld	(hl), #0x01
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1260,7 +1357,7 @@ _flipgirl::
 	ld	a, #0x02
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:240: girl.spritids[3] = 2;
+;main.c:285: girl.spritids[3] = 2;
 	ld	hl, #_girl + 3
 	ld	(hl), #0x02
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1269,7 +1366,7 @@ _flipgirl::
 	ld	a, #0x03
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:243: girl.spritids[2] = 3;
+;main.c:288: girl.spritids[2] = 3;
 	ld	hl, #_girl + 2
 	ld	(hl), #0x03
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -1297,7 +1394,7 @@ _flipgirl::
 	ld	(hl), #0x00
 	ld	hl, #(_shadow_OAM + 60)
 	ld	(hl), #0x00
-;main.c:258: movegirl(&girl, girl.x, girl.y);
+;main.c:303: movegirl(&girl, girl.x, girl.y);
 	ld	hl, #_girl + 5
 	ld	b, (hl)
 	ld	a, (#(_girl + 4) + 0)
@@ -1305,9 +1402,9 @@ _flipgirl::
 	inc	sp
 	ld	de, #_girl
 	call	_movegirl
-;main.c:261: }
+;main.c:306: }
 	ret
-;main.c:264: void flipgirln()
+;main.c:309: void flipgirln()
 ;	---------------------------------
 ; Function flipgirln
 ; ---------------------------------
@@ -1318,7 +1415,7 @@ _flipgirln::
 	xor	a, a
 	ld	(hl+), a
 	ld	(hl), a
-;main.c:268: girl.spritids[0] = 0;
+;main.c:313: girl.spritids[0] = 0;
 	ld	hl, #_girl
 	ld	(hl), #0x00
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1327,7 +1424,7 @@ _flipgirln::
 	ld	a, #0x01
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:271: girl.spritids[1] = 1;
+;main.c:316: girl.spritids[1] = 1;
 	ld	hl, #_girl + 1
 	ld	(hl), #0x01
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1336,7 +1433,7 @@ _flipgirln::
 	ld	a, #0x02
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:274: girl.spritids[2] = 2;
+;main.c:319: girl.spritids[2] = 2;
 	ld	hl, #_girl + 2
 	ld	(hl), #0x02
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1345,7 +1442,7 @@ _flipgirln::
 	ld	a, #0x03
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:277: girl.spritids[3] = 3;
+;main.c:322: girl.spritids[3] = 3;
 	ld	hl, #_girl + 3
 	ld	(hl), #0x03
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -1373,7 +1470,7 @@ _flipgirln::
 	ld	(hl), #0x00
 	ld	hl, #(_shadow_OAM + 60)
 	ld	(hl), #0x00
-;main.c:293: movegirl(&girl, girl.x, girl.y);
+;main.c:338: movegirl(&girl, girl.x, girl.y);
 	ld	hl, #_girl + 5
 	ld	b, (hl)
 	ld	a, (#(_girl + 4) + 0)
@@ -1381,9 +1478,9 @@ _flipgirln::
 	inc	sp
 	ld	de, #_girl
 	call	_movegirl
-;main.c:294: }
+;main.c:339: }
 	ret
-;main.c:297: void flipgirllw()
+;main.c:342: void flipgirllw()
 ;	---------------------------------
 ; Function flipgirllw
 ; ---------------------------------
@@ -1394,7 +1491,7 @@ _flipgirllw::
 	ld	a, #0x04
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:301: girl.spritids[0] = 4;
+;main.c:346: girl.spritids[0] = 4;
 	ld	hl, #_girl
 	ld	(hl), #0x04
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1403,7 +1500,7 @@ _flipgirllw::
 	ld	a, #0x05
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:304: girl.spritids[1] = 5;
+;main.c:349: girl.spritids[1] = 5;
 	ld	hl, #_girl + 1
 	ld	(hl), #0x05
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1412,7 +1509,7 @@ _flipgirllw::
 	ld	a, #0x06
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:307: girl.spritids[2] = 6;
+;main.c:352: girl.spritids[2] = 6;
 	ld	hl, #_girl + 2
 	ld	(hl), #0x06
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1421,7 +1518,7 @@ _flipgirllw::
 	ld	a, #0x07
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:310: girl.spritids[3] = 7;
+;main.c:355: girl.spritids[3] = 7;
 	ld	hl, #_girl + 3
 	ld	(hl), #0x07
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -1449,7 +1546,7 @@ _flipgirllw::
 	ld	(hl), #0x00
 	ld	hl, #(_shadow_OAM + 60)
 	ld	(hl), #0x00
-;main.c:325: movegirl(&girl, girl.x, girl.y);
+;main.c:370: movegirl(&girl, girl.x, girl.y);
 	ld	hl, #_girl + 5
 	ld	b, (hl)
 	ld	a, (#(_girl + 4) + 0)
@@ -1457,9 +1554,9 @@ _flipgirllw::
 	inc	sp
 	ld	de, #_girl
 	call	_movegirl
-;main.c:326: }
+;main.c:371: }
 	ret
-;main.c:329: void flipgirlls()
+;main.c:374: void flipgirlls()
 ;	---------------------------------
 ; Function flipgirlls
 ; ---------------------------------
@@ -1470,7 +1567,7 @@ _flipgirlls::
 ;c:\gbdk\include\gb\gb.h:1946: shadow_OAM[nb].prop=prop;
 	inc	hl
 	ld	(hl), #0x00
-;main.c:333: girl.spritids[0] = 8;
+;main.c:378: girl.spritids[0] = 8;
 	ld	hl, #_girl
 	ld	(hl), #0x08
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1479,7 +1576,7 @@ _flipgirlls::
 ;c:\gbdk\include\gb\gb.h:1946: shadow_OAM[nb].prop=prop;
 	inc	hl
 	ld	(hl), #0x00
-;main.c:336: girl.spritids[1] = 9;
+;main.c:381: girl.spritids[1] = 9;
 	ld	hl, #_girl + 1
 	ld	(hl), #0x09
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1488,7 +1585,7 @@ _flipgirlls::
 ;c:\gbdk\include\gb\gb.h:1946: shadow_OAM[nb].prop=prop;
 	inc	hl
 	ld	(hl), #0x00
-;main.c:339: girl.spritids[2] = 10;
+;main.c:384: girl.spritids[2] = 10;
 	ld	hl, #_girl + 2
 	ld	(hl), #0x0a
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1497,7 +1594,7 @@ _flipgirlls::
 	ld	a, #0x0b
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:342: girl.spritids[3] = 11;
+;main.c:387: girl.spritids[3] = 11;
 	ld	hl, #_girl + 3
 	ld	(hl), #0x0b
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -1525,7 +1622,7 @@ _flipgirlls::
 	ld	(hl), #0x00
 	ld	hl, #(_shadow_OAM + 60)
 	ld	(hl), #0x00
-;main.c:357: movegirl(&girl, girl.x, girl.y);
+;main.c:402: movegirl(&girl, girl.x, girl.y);
 	ld	hl, #_girl + 5
 	ld	b, (hl)
 	ld	a, (#(_girl + 4) + 0)
@@ -1533,9 +1630,9 @@ _flipgirlls::
 	inc	sp
 	ld	de, #_girl
 	call	_movegirl
-;main.c:358: }
+;main.c:403: }
 	ret
-;main.c:361: void flipgirlrw()
+;main.c:406: void flipgirlrw()
 ;	---------------------------------
 ; Function flipgirlrw
 ; ---------------------------------
@@ -1546,7 +1643,7 @@ _flipgirlrw::
 	ld	a, #0x04
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:365: girl.spritids[1] = 4;
+;main.c:410: girl.spritids[1] = 4;
 	ld	hl, #_girl + 1
 	ld	(hl), #0x04
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1555,7 +1652,7 @@ _flipgirlrw::
 	ld	a, #0x05
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:368: girl.spritids[0] = 5;
+;main.c:413: girl.spritids[0] = 5;
 	ld	hl, #_girl
 	ld	(hl), #0x05
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1564,7 +1661,7 @@ _flipgirlrw::
 	ld	a, #0x06
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:371: girl.spritids[3] = 6;
+;main.c:416: girl.spritids[3] = 6;
 	ld	hl, #_girl + 3
 	ld	(hl), #0x06
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1573,7 +1670,7 @@ _flipgirlrw::
 	ld	a, #0x07
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:374: girl.spritids[2] = 7;
+;main.c:419: girl.spritids[2] = 7;
 	ld	hl, #_girl + 2
 	ld	(hl), #0x07
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -1601,7 +1698,7 @@ _flipgirlrw::
 	ld	(hl), #0x00
 	ld	hl, #(_shadow_OAM + 60)
 	ld	(hl), #0x00
-;main.c:389: movegirl(&girl, girl.x, girl.y);
+;main.c:434: movegirl(&girl, girl.x, girl.y);
 	ld	hl, #_girl + 5
 	ld	b, (hl)
 	ld	a, (#(_girl + 4) + 0)
@@ -1609,9 +1706,9 @@ _flipgirlrw::
 	inc	sp
 	ld	de, #_girl
 	call	_movegirl
-;main.c:390: }
+;main.c:435: }
 	ret
-;main.c:393: void flipgirlrs()
+;main.c:438: void flipgirlrs()
 ;	---------------------------------
 ; Function flipgirlrs
 ; ---------------------------------
@@ -1622,7 +1719,7 @@ _flipgirlrs::
 ;c:\gbdk\include\gb\gb.h:1946: shadow_OAM[nb].prop=prop;
 	inc	hl
 	ld	(hl), #0x20
-;main.c:397: girl.spritids[1] = 8;
+;main.c:442: girl.spritids[1] = 8;
 	ld	hl, #_girl + 1
 	ld	(hl), #0x08
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1631,7 +1728,7 @@ _flipgirlrs::
 ;c:\gbdk\include\gb\gb.h:1946: shadow_OAM[nb].prop=prop;
 	inc	hl
 	ld	(hl), #0x20
-;main.c:400: girl.spritids[0] = 9;
+;main.c:445: girl.spritids[0] = 9;
 	ld	hl, #_girl
 	ld	(hl), #0x09
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1640,7 +1737,7 @@ _flipgirlrs::
 ;c:\gbdk\include\gb\gb.h:1946: shadow_OAM[nb].prop=prop;
 	inc	hl
 	ld	(hl), #0x20
-;main.c:403: girl.spritids[3] = 10;
+;main.c:448: girl.spritids[3] = 10;
 	ld	hl, #_girl + 3
 	ld	(hl), #0x0a
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1649,7 +1746,7 @@ _flipgirlrs::
 	ld	a, #0x0b
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:406: girl.spritids[2] = 11;
+;main.c:451: girl.spritids[2] = 11;
 	ld	hl, #_girl + 2
 	ld	(hl), #0x0b
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -1677,7 +1774,7 @@ _flipgirlrs::
 	ld	(hl), #0x00
 	ld	hl, #(_shadow_OAM + 60)
 	ld	(hl), #0x00
-;main.c:421: movegirl(&girl, girl.x, girl.y);
+;main.c:466: movegirl(&girl, girl.x, girl.y);
 	ld	hl, #_girl + 5
 	ld	b, (hl)
 	ld	a, (#(_girl + 4) + 0)
@@ -1685,9 +1782,9 @@ _flipgirlrs::
 	inc	sp
 	ld	de, #_girl
 	call	_movegirl
-;main.c:422: }
+;main.c:467: }
 	ret
-;main.c:425: void flipgirlu()
+;main.c:470: void flipgirlu()
 ;	---------------------------------
 ; Function flipgirlu
 ; ---------------------------------
@@ -1698,7 +1795,7 @@ _flipgirlu::
 	ld	a, #0x0c
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:429: girl.spritids[0] = 12;
+;main.c:474: girl.spritids[0] = 12;
 	ld	hl, #_girl
 	ld	(hl), #0x0c
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1707,7 +1804,7 @@ _flipgirlu::
 	ld	a, #0x0d
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:432: girl.spritids[1] = 13;
+;main.c:477: girl.spritids[1] = 13;
 	ld	hl, #_girl + 1
 	ld	(hl), #0x0d
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1716,7 +1813,7 @@ _flipgirlu::
 	ld	a, #0x0e
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:435: girl.spritids[2] = 14;
+;main.c:480: girl.spritids[2] = 14;
 	ld	hl, #_girl + 2
 	ld	(hl), #0x0e
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1725,7 +1822,7 @@ _flipgirlu::
 	ld	a, #0x0f
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:438: girl.spritids[3] = 15;
+;main.c:483: girl.spritids[3] = 15;
 	ld	hl, #_girl + 3
 	ld	(hl), #0x0f
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -1753,7 +1850,7 @@ _flipgirlu::
 	ld	(hl), #0x00
 	ld	hl, #(_shadow_OAM + 44)
 	ld	(hl), #0x00
-;main.c:454: movegirl(&girl, girl.x, girl.y);
+;main.c:499: movegirl(&girl, girl.x, girl.y);
 	ld	hl, #_girl + 5
 	ld	b, (hl)
 	ld	a, (#(_girl + 4) + 0)
@@ -1761,9 +1858,9 @@ _flipgirlu::
 	inc	sp
 	ld	de, #_girl
 	call	_movegirl
-;main.c:455: }
+;main.c:500: }
 	ret
-;main.c:458: void flipgirlun()
+;main.c:503: void flipgirlun()
 ;	---------------------------------
 ; Function flipgirlun
 ; ---------------------------------
@@ -1771,13 +1868,13 @@ _flipgirlun::
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 50)
 	ld	(hl), #0x0c
-;main.c:462: girl.spritids[0] = 12;
+;main.c:507: girl.spritids[0] = 12;
 	ld	hl, #_girl
 	ld	(hl), #0x0c
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 54)
 	ld	(hl), #0x0d
-;main.c:465: girl.spritids[1] = 13;
+;main.c:510: girl.spritids[1] = 13;
 	ld	hl, #_girl + 1
 	ld	(hl), #0x0d
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1786,7 +1883,7 @@ _flipgirlun::
 	ld	a, #0x0e
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:468: girl.spritids[3] = 14;
+;main.c:513: girl.spritids[3] = 14;
 	ld	hl, #_girl + 3
 	ld	(hl), #0x0e
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1795,7 +1892,7 @@ _flipgirlun::
 	ld	a, #0x0f
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:471: girl.spritids[2] = 15;
+;main.c:516: girl.spritids[2] = 15;
 	ld	hl, #_girl + 2
 	ld	(hl), #0x0f
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -1826,7 +1923,7 @@ _flipgirlun::
 	ld	(hl), #0x00
 	ld	hl, #(_shadow_OAM + 44)
 	ld	(hl), #0x00
-;main.c:487: movegirl(&girl, girl.x, girl.y);
+;main.c:532: movegirl(&girl, girl.x, girl.y);
 	ld	hl, #_girl + 5
 	ld	b, (hl)
 	ld	a, (#(_girl + 4) + 0)
@@ -1834,54 +1931,54 @@ _flipgirlun::
 	inc	sp
 	ld	de, #_girl
 	call	_movegirl
-;main.c:489: }
+;main.c:534: }
 	ret
-;main.c:491: void setupgirl()
+;main.c:536: void setupgirl()
 ;	---------------------------------
 ; Function setupgirl
 ; ---------------------------------
 _setupgirl::
-;main.c:493: girl.x = 80;
+;main.c:538: girl.x = 80;
 	ld	bc, #_girl + 4
 	ld	a, #0x50
 	ld	(bc), a
-;main.c:494: girl.y = 36;
+;main.c:539: girl.y = 36;
 	ld	hl, #(_girl + 5)
-;main.c:495: girl.width = 16;
+;main.c:540: girl.width = 16;
 	ld	a, #0x24
 	ld	(hl+), a
 	ld	(hl), #0x10
-;main.c:496: girl.height = 16;
+;main.c:541: girl.height = 16;
 	ld	hl, #_girl + 7
 	ld	(hl), #0x10
-;main.c:497: girl.anim = 0;
+;main.c:542: girl.anim = 0;
 	ld	hl, #_girl + 8
 	ld	(hl), #0x00
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 2)
 	ld	(hl), #0x00
-;main.c:500: girl.spritids[0] = 0;
+;main.c:545: girl.spritids[0] = 0;
 	ld	hl, #_girl
 	ld	(hl), #0x00
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 6)
 	ld	(hl), #0x01
-;main.c:502: girl.spritids[1] = 1;
+;main.c:547: girl.spritids[1] = 1;
 	ld	hl, #_girl + 1
 	ld	(hl), #0x01
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 10)
 	ld	(hl), #0x02
-;main.c:504: girl.spritids[2] = 2;
+;main.c:549: girl.spritids[2] = 2;
 	ld	hl, #_girl + 2
 	ld	(hl), #0x02
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 14)
 	ld	(hl), #0x03
-;main.c:506: girl.spritids[3] = 3;
+;main.c:551: girl.spritids[3] = 3;
 	ld	hl, #_girl + 3
 	ld	(hl), #0x03
-;main.c:508: movegirl(&girl, girl.x, girl.y);
+;main.c:553: movegirl(&girl, girl.x, girl.y);
 	ld	hl, #(_girl + 5)
 	ld	h, (hl)
 	ld	a, (bc)
@@ -1889,20 +1986,20 @@ _setupgirl::
 	inc	sp
 	ld	de, #_girl
 	call	_movegirl
-;main.c:509: }
+;main.c:554: }
 	ret
-;main.c:511: void setupslime()
+;main.c:556: void setupslime()
 ;	---------------------------------
 ; Function setupslime
 ; ---------------------------------
 _setupslime::
-;main.c:513: slime.x = rand() % 128 + 16;
+;main.c:558: slime.x = rand() % 128 + 16;
 	call	_rand
 	ld	a, e
 	res	7, a
 	add	a, #0x10
 	ld	(#(_slime + 2)),a
-;main.c:514: slime.y = rand() % 96 + 24;
+;main.c:559: slime.y = rand() % 96 + 24;
 	call	_rand
 	ld	a, e
 	ld	e, #0x60
@@ -1910,22 +2007,22 @@ _setupslime::
 	ld	a, c
 	add	a, #0x18
 	ld	hl, #(_slime + 3)
-;main.c:515: slime.width = 8;
+;main.c:560: slime.width = 8;
 	ld	(hl+), a
 	ld	(hl), #0x08
-;main.c:516: slime.height = 8;
+;main.c:561: slime.height = 8;
 	ld	hl, #_slime + 5
 	ld	(hl), #0x08
-;main.c:517: slime.anim = 0;
+;main.c:562: slime.anim = 0;
 	ld	hl, #_slime + 6
 	ld	(hl), #0x00
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 66)
 	ld	(hl), #0x10
-;main.c:521: slime.spritids[0] = 16;
+;main.c:566: slime.spritids[0] = 16;
 	ld	hl, #_slime
 	ld	(hl), #0x10
-;main.c:523: moveslime(&slime, slime.x, slime.y);
+;main.c:568: moveslime(&slime, slime.x, slime.y);
 	ld	hl, #(_slime + 3)
 	ld	b, (hl)
 	ld	a, (#(_slime + 2) + 0)
@@ -1933,51 +2030,53 @@ _setupslime::
 	inc	sp
 	ld	de, #_slime
 	call	_moveslime
-;main.c:524: }
+;main.c:569: }
 	ret
-;main.c:526: void setupsword()
+;main.c:571: void setupsword()
 ;	---------------------------------
 ; Function setupsword
 ; ---------------------------------
 _setupsword::
-;main.c:528: sword.x = 100;
+;main.c:573: sword.x = 100;
 	ld	hl, #_sword + 2
 	ld	(hl), #0x64
-;main.c:529: sword.y = 100;
+;main.c:574: sword.y = 100;
 	ld	hl, #_sword + 3
 	ld	(hl), #0x64
-;main.c:530: sword.width = 8;
+;main.c:575: sword.width = 8;
 	ld	hl, #_sword + 4
 	ld	(hl), #0x08
-;main.c:531: sword.height = 8;
+;main.c:576: sword.height = 8;
 	ld	hl, #_sword + 5
 	ld	(hl), #0x08
-;main.c:532: sword.anim = 0;
+;main.c:577: sword.anim = 0;
 	ld	hl, #_sword + 6
 	ld	(hl), #0x00
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 74)
 	ld	(hl), #0x12
-;main.c:536: sword.spritids[0] = 18;
+;main.c:581: sword.spritids[0] = 18;
 	ld	hl, #_sword
 	ld	(hl), #0x12
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
 	ld	hl, #(_shadow_OAM + 78)
 	ld	(hl), #0x13
-;main.c:538: sword.spritids[1] = 19;
+;main.c:583: sword.spritids[1] = 19;
 	ld	hl, #_sword + 1
 	ld	(hl), #0x13
-;main.c:541: }
+;main.c:586: }
 	ret
-;main.c:544: void main()
+;main.c:589: void main()
 ;	---------------------------------
 ; Function main
 ; ---------------------------------
 _main::
 	dec	sp
-;main.c:548: while(1)
+;main.c:591: room_0();
+	call	_room_0
+;main.c:593: while(1)
 00177$:
-;main.c:550: if(joypad() & J_START && gamestate == 0)
+;main.c:595: if(joypad() & J_START && gamestate == 0)
 	call	_joypad
 	rlca
 	jp	NC, 00102$
@@ -1985,34 +2084,34 @@ _main::
 	ld	a, (hl)
 	or	a, a
 	jp	NZ, 00102$
-;main.c:553: gamestate = 1;
+;main.c:598: gamestate = 1;
 	ld	(hl), #0x01
-;main.c:554: initrand(DIV_REG);
+;main.c:599: initrand(DIV_REG);
 	ldh	a, (_DIV_REG + 0)
 	ld	b, #0x00
 	ld	c, a
 	push	bc
 	call	_initrand
 	pop	hl
-;main.c:557: font_init();
+;main.c:602: font_init();
 	call	_font_init
-;main.c:558: min_font = font_load(font_min);
+;main.c:603: min_font = font_load(font_min);
 	ld	de, #_font_min
 	push	de
 	call	_font_load
 	pop	hl
-;main.c:559: font_set(min_font);
+;main.c:604: font_set(min_font);
 	push	de
 	call	_font_set
 	pop	hl
-;main.c:561: set_bkg_data(37, 8, backgroundtiles);
+;main.c:606: set_bkg_data(37, 8, backgroundtiles);
 	ld	de, #_backgroundtiles
 	push	de
 	ld	hl, #0x825
 	push	hl
 	call	_set_bkg_data
 	add	sp, #4
-;main.c:562: set_bkg_tiles(0, 0, 20, 16, backgroundmap);
+;main.c:607: set_bkg_tiles(0, 0, 20, 16, backgroundmap);
 	ld	de, #_backgroundmap
 	push	de
 	ld	hl, #0x1014
@@ -2022,7 +2121,7 @@ _main::
 	push	af
 	call	_set_bkg_tiles
 	add	sp, #6
-;main.c:564: set_win_tiles(0, 0, 20, 2, windowmap);
+;main.c:609: set_win_tiles(0, 0, 20, 2, windowmap);
 	ld	de, #_windowmap
 	push	de
 	ld	hl, #0x214
@@ -2037,95 +2136,95 @@ _main::
 	ldh	(_WX_REG + 0), a
 	ld	a, #0x80
 	ldh	(_WY_REG + 0), a
-;main.c:569: set_sprite_data(0, 22, Girl);
+;main.c:614: set_sprite_data(0, 22, Girl);
 	ld	de, #_Girl
 	push	de
 	ld	hl, #0x1600
 	push	hl
 	call	_set_sprite_data
 	add	sp, #4
-;main.c:570: setupgirl();
+;main.c:615: setupgirl();
 	call	_setupgirl
-;main.c:571: setupslime();
+;main.c:616: setupslime();
 	call	_setupslime
-;main.c:572: setupsword();
+;main.c:617: setupsword();
 	call	_setupsword
-;main.c:575: OBP0_REG = 0xE0;
+;main.c:620: OBP0_REG = 0xE0;
 	ld	a, #0xe0
 	ldh	(_OBP0_REG + 0), a
-;main.c:576: OBP1_REG = 0xE0;
+;main.c:621: OBP1_REG = 0xE0;
 	ld	a, #0xe0
 	ldh	(_OBP1_REG + 0), a
-;main.c:577: SHOW_SPRITES;
+;main.c:622: SHOW_SPRITES;
 	ldh	a, (_LCDC_REG + 0)
 	or	a, #0x02
 	ldh	(_LCDC_REG + 0), a
-;main.c:578: SHOW_BKG;
+;main.c:623: SHOW_BKG;
 	ldh	a, (_LCDC_REG + 0)
 	or	a, #0x01
 	ldh	(_LCDC_REG + 0), a
-;main.c:579: SHOW_WIN;
+;main.c:624: SHOW_WIN;
 	ldh	a, (_LCDC_REG + 0)
 	or	a, #0x20
 	ldh	(_LCDC_REG + 0), a
-;main.c:580: DISPLAY_ON;
+;main.c:625: DISPLAY_ON;
 	ldh	a, (_LCDC_REG + 0)
 	or	a, #0x80
 	ldh	(_LCDC_REG + 0), a
 00102$:
-;main.c:582: if(joypad() & J_START && gamestate == 1)
+;main.c:627: if(joypad() & J_START && gamestate == 1)
 	call	_joypad
 	rlca
 	jr	NC, 00105$
 	ld	a, (#_gamestate)
 	dec	a
 	jr	NZ, 00105$
-;main.c:584: gamestate = 2;
+;main.c:629: gamestate = 2;
 	ld	hl, #_gamestate
 	ld	(hl), #0x02
-;main.c:585: DISPLAY_ON;
+;main.c:630: DISPLAY_ON;
 	ldh	a, (_LCDC_REG + 0)
 	or	a, #0x80
 	ldh	(_LCDC_REG + 0), a
-;main.c:586: HIDE_BKG;
+;main.c:631: HIDE_BKG;
 	ldh	a, (_LCDC_REG + 0)
 	and	a, #0xfe
 	ldh	(_LCDC_REG + 0), a
-;main.c:587: HIDE_SPRITES;
+;main.c:632: HIDE_SPRITES;
 	ldh	a, (_LCDC_REG + 0)
 	and	a, #0xfd
 	ldh	(_LCDC_REG + 0), a
 00105$:
-;main.c:589: if(joypad() & J_START && gamestate == 2)
+;main.c:634: if(joypad() & J_START && gamestate == 2)
 	call	_joypad
 	rlca
 	jr	NC, 00108$
 	ld	a, (#_gamestate)
 	sub	a, #0x02
 	jr	NZ, 00108$
-;main.c:591: gamestate = 1;
+;main.c:636: gamestate = 1;
 	ld	hl, #_gamestate
 	ld	(hl), #0x01
-;main.c:592: SHOW_SPRITES;
+;main.c:637: SHOW_SPRITES;
 	ldh	a, (_LCDC_REG + 0)
 	or	a, #0x02
 	ldh	(_LCDC_REG + 0), a
-;main.c:593: SHOW_BKG;
+;main.c:638: SHOW_BKG;
 	ldh	a, (_LCDC_REG + 0)
 	or	a, #0x01
 	ldh	(_LCDC_REG + 0), a
-;main.c:594: DISPLAY_OFF;
+;main.c:639: DISPLAY_OFF;
 	call	_display_off
 00108$:
-;main.c:597: if (locktimer == 0)
+;main.c:642: if (locktimer == 0)
 	ld	a, (#_locktimer)
 	or	a, a
 	jp	NZ, 00157$
-;main.c:599: if(joypad() & J_LEFT)
+;main.c:644: if(joypad() & J_LEFT)
 	call	_joypad
 	bit	1, a
 	jp	Z, 00122$
-;main.c:601: moveswordl(&sword, sword.x, sword.y);
+;main.c:646: moveswordl(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
@@ -2133,11 +2232,11 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordl
-;main.c:602: if(girl.x > 23)
+;main.c:647: if(girl.x > 23)
 	ld	a, (#(_girl + 4) + 0)
 	cp	a, #0x18
 	jr	C, 00111$
-;main.c:604: moveswordl(&sword, sword.x, sword.y);
+;main.c:649: moveswordl(&sword, sword.x, sword.y);
 	ld	a, (#(_sword + 3) + 0)
 	ldhl	sp,	#0
 	ld	(hl), a
@@ -2148,13 +2247,13 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordl
-;main.c:605: girl.x -= 2;
+;main.c:650: girl.x -= 2;
 	ld	a, (#(_girl + 4) + 0)
 	dec	a
 	dec	a
 	ld	(#(_girl + 4)),a
 00111$:
-;main.c:608: if(girl.anim != 2 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+;main.c:653: if(girl.anim != 2 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
 	ld	a, (#(_girl + 8) + 0)
 	sub	a, #0x02
 	jr	Z, 00117$
@@ -2164,7 +2263,7 @@ _main::
 	call	_joypad
 	bit	3, a
 	jr	NZ, 00117$
-;main.c:610: moveswordl(&sword, sword.x, sword.y);
+;main.c:655: moveswordl(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
@@ -2172,14 +2271,14 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordl
-;main.c:611: flipgirllw();
+;main.c:656: flipgirllw();
 	call	_flipgirllw
-;main.c:612: girl.anim = 2;
+;main.c:657: girl.anim = 2;
 	ld	hl, #(_girl + 8)
 	ld	(hl), #0x02
 	jr	00118$
 00117$:
-;main.c:614: else if(girl.anim != 3 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+;main.c:659: else if(girl.anim != 3 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
 	ld	a, (#(_girl + 8) + 0)
 	sub	a, #0x03
 	jr	Z, 00118$
@@ -2189,7 +2288,7 @@ _main::
 	call	_joypad
 	bit	3, a
 	jr	NZ, 00118$
-;main.c:616: moveswordl(&sword, sword.x, sword.y);
+;main.c:661: moveswordl(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
@@ -2197,21 +2296,21 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordl
-;main.c:617: flipgirlls();
+;main.c:662: flipgirlls();
 	call	_flipgirlls
-;main.c:618: girl.anim = 3;
+;main.c:663: girl.anim = 3;
 	ld	hl, #(_girl + 8)
 	ld	(hl), #0x03
 00118$:
-;main.c:620: direction = 2;
+;main.c:665: direction = 2;
 	ld	hl, #_direction
 	ld	(hl), #0x02
 00122$:
-;main.c:622: if(joypad() & J_RIGHT)
+;main.c:667: if(joypad() & J_RIGHT)
 	call	_joypad
 	rrca
 	jp	NC, 00135$
-;main.c:624: moveswordr(&sword,sword.x, sword.y);
+;main.c:669: moveswordr(&sword,sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
@@ -2219,11 +2318,11 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordr
-;main.c:625: if(girl.x < 138)
+;main.c:670: if(girl.x < 138)
 	ld	a, (#(_girl + 4) + 0)
 	sub	a, #0x8a
 	jr	NC, 00124$
-;main.c:627: moveswordr(&sword,sword.x, sword.y);
+;main.c:672: moveswordr(&sword,sword.x, sword.y);
 	ld	a, (#(_sword + 3) + 0)
 	ldhl	sp,	#0
 	ld	(hl), a
@@ -2234,12 +2333,12 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordr
-;main.c:628: girl.x += 2;
+;main.c:673: girl.x += 2;
 	ld	a, (#(_girl + 4) + 0)
 	add	a, #0x02
 	ld	(#(_girl + 4)),a
 00124$:
-;main.c:632: if(girl.anim != 4 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+;main.c:677: if(girl.anim != 4 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
 	ld	a, (#(_girl + 8) + 0)
 	sub	a, #0x04
 	jr	Z, 00130$
@@ -2249,7 +2348,7 @@ _main::
 	call	_joypad
 	bit	3, a
 	jr	NZ, 00130$
-;main.c:634: moveswordr(&sword, sword.x, sword.y);
+;main.c:679: moveswordr(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
@@ -2257,14 +2356,14 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordr
-;main.c:635: flipgirlrw();
+;main.c:680: flipgirlrw();
 	call	_flipgirlrw
-;main.c:636: girl.anim = 4;
+;main.c:681: girl.anim = 4;
 	ld	hl, #(_girl + 8)
 	ld	(hl), #0x04
 	jr	00131$
 00130$:
-;main.c:638: else if(girl.anim != 5 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+;main.c:683: else if(girl.anim != 5 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
 	ld	a, (#(_girl + 8) + 0)
 	sub	a, #0x05
 	jr	Z, 00131$
@@ -2274,7 +2373,7 @@ _main::
 	call	_joypad
 	bit	3, a
 	jr	NZ, 00131$
-;main.c:640: moveswordr(&sword, sword.x, sword.y);
+;main.c:685: moveswordr(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
@@ -2282,21 +2381,21 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordr
-;main.c:641: flipgirlrs();
+;main.c:686: flipgirlrs();
 	call	_flipgirlrs
-;main.c:642: girl.anim = 5;
+;main.c:687: girl.anim = 5;
 	ld	hl, #(_girl + 8)
 	ld	(hl), #0x05
 00131$:
-;main.c:644: direction = 3;
+;main.c:689: direction = 3;
 	ld	hl, #_direction
 	ld	(hl), #0x03
 00135$:
-;main.c:646: if(joypad() & J_UP)
+;main.c:691: if(joypad() & J_UP)
 	call	_joypad
 	bit	2, a
 	jr	Z, 00144$
-;main.c:648: moveswordu(&sword, sword.x, sword.y);
+;main.c:693: moveswordu(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
@@ -2304,11 +2403,11 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordu
-;main.c:649: if(girl.y > 20)
+;main.c:694: if(girl.y > 20)
 	ld	a, (#(_girl + 5) + 0)
 	cp	a, #0x15
 	jr	C, 00137$
-;main.c:652: girl.y -= 2;
+;main.c:697: girl.y -= 2;
 	ldhl	sp,	#0
 	ld	(hl), a
 	ld	a, (hl)
@@ -2316,11 +2415,11 @@ _main::
 	dec	a
 	ld	(#(_girl + 5)),a
 00137$:
-;main.c:654: if(girl.anim != 6)
+;main.c:699: if(girl.anim != 6)
 	ld	a, (#(_girl + 8) + 0)
 	cp	a, #0x06
 	jr	Z, 00141$
-;main.c:656: moveswordu(&sword, sword.x, sword.y);
+;main.c:701: moveswordu(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
@@ -2328,17 +2427,17 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordu
-;main.c:657: flipgirlu();
+;main.c:702: flipgirlu();
 	call	_flipgirlu
-;main.c:658: girl.anim = 6;
+;main.c:703: girl.anim = 6;
 	ld	hl, #(_girl + 8)
 	ld	(hl), #0x06
 	jr	00142$
 00141$:
-;main.c:660: else if(girl.anim != 7)
+;main.c:705: else if(girl.anim != 7)
 	sub	a, #0x07
 	jr	Z, 00142$
-;main.c:662: moveswordu(&sword, sword.x, sword.y);
+;main.c:707: moveswordu(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
@@ -2346,21 +2445,21 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordu
-;main.c:663: flipgirlun();
+;main.c:708: flipgirlun();
 	call	_flipgirlun
-;main.c:664: girl.anim = 7;
+;main.c:709: girl.anim = 7;
 	ld	hl, #(_girl + 8)
 	ld	(hl), #0x07
 00142$:
-;main.c:666: direction = 1;
+;main.c:711: direction = 1;
 	ld	hl, #_direction
 	ld	(hl), #0x01
 00144$:
-;main.c:668: if(joypad() & J_DOWN)
+;main.c:713: if(joypad() & J_DOWN)
 	call	_joypad
 	bit	3, a
 	jr	Z, 00153$
-;main.c:670: moveswordd(&sword, sword.x, sword.y);
+;main.c:715: moveswordd(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
@@ -2368,20 +2467,20 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordd
-;main.c:671: if(girl.y < 113)
+;main.c:716: if(girl.y < 113)
 	ld	hl, #_girl + 5
 	ld	a, (hl)
 	cp	a, #0x71
 	jr	NC, 00146$
-;main.c:674: girl.y += 2;
+;main.c:719: girl.y += 2;
 	add	a, #0x02
 	ld	(hl), a
 00146$:
-;main.c:677: if(girl.anim != 0)
+;main.c:722: if(girl.anim != 0)
 	ld	a, (#(_girl + 8) + 0)
 	or	a, a
 	jr	Z, 00150$
-;main.c:679: moveswordd(&sword, sword.x, sword.y);
+;main.c:724: moveswordd(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
@@ -2389,17 +2488,17 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordd
-;main.c:680: flipgirl();
+;main.c:725: flipgirl();
 	call	_flipgirl
-;main.c:681: girl.anim = 0;
+;main.c:726: girl.anim = 0;
 	ld	hl, #(_girl + 8)
 	ld	(hl), #0x00
 	jr	00151$
 00150$:
-;main.c:683: else if(girl.anim != 1)
+;main.c:728: else if(girl.anim != 1)
 	dec	a
 	jr	Z, 00151$
-;main.c:685: moveswordd(&sword, sword.x, sword.y);
+;main.c:730: moveswordd(&sword, sword.x, sword.y);
 	ld	hl, #(_sword + 3)
 	ld	b, (hl)
 	ld	a, (#(_sword + 2) + 0)
@@ -2407,30 +2506,30 @@ _main::
 	inc	sp
 	ld	de, #_sword
 	call	_moveswordd
-;main.c:686: flipgirln();
+;main.c:731: flipgirln();
 	call	_flipgirln
-;main.c:687: girl.anim = 1;
+;main.c:732: girl.anim = 1;
 	ld	hl, #(_girl + 8)
 	ld	(hl), #0x01
 00151$:
-;main.c:689: direction = 0;
+;main.c:734: direction = 0;
 	xor	a, a
 	ld	(#_direction),a
 00153$:
-;main.c:692: if(joypad() & J_A)
+;main.c:737: if(joypad() & J_A)
 	call	_joypad
 	bit	4, a
 	jr	Z, 00157$
-;main.c:694: attack();
+;main.c:739: attack();
 	call	_attack
 00157$:
-;main.c:698: if(locktimer > 0)
+;main.c:743: if(locktimer > 0)
 	ld	a, (#_locktimer)
 	or	a, a
 	jr	Z, 00159$
-;main.c:700: sword_slimecolision();
+;main.c:745: sword_slimecolision();
 	call	_sword_slimecolision
-;main.c:701: moveslime(&slime, slime.x, slime.y);
+;main.c:746: moveslime(&slime, slime.x, slime.y);
 	ld	hl, #_slime + 3
 	ld	b, (hl)
 	ld	a, (#(_slime + 2) + 0)
@@ -2438,69 +2537,65 @@ _main::
 	inc	sp
 	ld	de, #_slime
 	call	_moveslime
-;main.c:702: locktimer++;
+;main.c:747: locktimer++;
 	ld	hl, #_locktimer
 	inc	(hl)
 00159$:
-;main.c:704: if(locktimer == 10)
+;main.c:749: if(locktimer == 10)
 	ld	a, (#_locktimer)
 	sub	a, #0x0a
 	jr	NZ, 00161$
-;main.c:706: locktimer = 0;
+;main.c:751: locktimer = 0;
 	xor	a, a
 	ld	(#_locktimer),a
-;main.c:707: swordreset();
+;main.c:752: swordreset();
 	call	_swordreset
 00161$:
-;main.c:710: if(slime.death == 0)
-	ld	a, (#(_slime + 7) + 0)
-	ldhl	sp,#0
-	ld	(hl), a
-	ld	a, (hl)
+;main.c:755: if(slime.death == 0)
+	ld	hl, #_slime + 7
+	ld	e, (hl)
+	ld	a, e
 	or	a, a
 	jr	NZ, 00172$
-;main.c:712: animslime();
+;main.c:757: animslime();
 	call	_animslime
-;main.c:713: animtimer++;
+;main.c:758: animtimer++;
 	ld	hl, #_animtimer
 	inc	(hl)
-;main.c:714: if(animtimer == 20)
+;main.c:759: if(animtimer == 20)
 	ld	a, (hl)
 	sub	a, #0x14
 	jr	NZ, 00173$
-;main.c:716: animtimer = 0;
+;main.c:761: animtimer = 0;
 	xor	a, a
 	ld	(#_animtimer),a
-;main.c:717: if(slime.anim == 0)
-	ld	a, (#(_slime + 6) + 0)
+;main.c:762: if(slime.anim == 0)
+	ld	hl, #_slime + 6
+	ld	a, (hl)
 	or	a, a
 	jr	NZ, 00165$
-;main.c:719: slime.anim = 1;
-	ld	hl, #(_slime + 6)
+;main.c:764: slime.anim = 1;
 	ld	(hl), #0x01
 	jr	00173$
 00165$:
-;main.c:721: else if(slime.anim == 1)
+;main.c:766: else if(slime.anim == 1)
+;main.c:768: slime.anim = 0;
 	dec	a
 	jr	NZ, 00173$
-;main.c:723: slime.anim = 0;
-	ld	hl, #(_slime + 6)
-	ld	(hl), #0x00
+	ld	(hl), a
 	jr	00173$
 00172$:
-;main.c:728: else if(slime.death == 1)
-	ldhl	sp,	#0
-	ld	a, (hl)
-	dec	a
+;main.c:773: else if(slime.death == 1)
+	dec	e
 	jr	NZ, 00173$
-;main.c:730: slime.x = 0;
+;main.c:775: slime.x = 0;
 	ld	hl, #_slime + 2
 	ld	(hl), #0x00
-;main.c:731: slime.y = 0;
+;main.c:776: slime.y = 0;
 	ld	bc, #_slime + 3
 	xor	a, a
 	ld	(bc), a
-;main.c:732: moveslime(&slime, slime.x, slime.y);
+;main.c:777: moveslime(&slime, slime.x, slime.y);
 	ld	a, (hl)
 	ld	h, #0x00
 	push	hl
@@ -2508,29 +2603,16 @@ _main::
 	ld	de, #_slime
 	call	_moveslime
 00173$:
-;main.c:734: spawntimer++;
+;main.c:779: spawntimer++;
 	ld	hl, #_spawntimer
 	inc	(hl)
-;main.c:735: if(spawntimer == 100)
-	ld	a, (hl)
-	sub	a, #0x64
-	jr	NZ, 00175$
-;main.c:737: spawntimer = 0;
-	xor	a, a
-	ld	(#_spawntimer),a
-;main.c:738: slime.death = 0;
-	ld	hl, #(_slime + 7)
-	ld	(hl), #0x00
-;main.c:739: setupslime();
-	call	_setupslime
-00175$:
-;main.c:741: girl_slimecolision();
+;main.c:786: girl_slimecolision();
 	call	_girl_slimecolision
-;main.c:742: performantdelay(5);
+;main.c:787: performantdelay(5);
 	ld	a, #0x05
 	call	_performantdelay
 	jp	00177$
-;main.c:745: }
+;main.c:790: }
 	inc	sp
 	ret
 	.area _CODE
@@ -3478,5 +3560,7 @@ __xinit__locktimer:
 __xinit__spawntimer:
 	.db #0x00	; 0
 __xinit__direction:
+	.db #0x00	; 0
+__xinit__room:
 	.db #0x00	; 0
 	.area _CABS (ABS)

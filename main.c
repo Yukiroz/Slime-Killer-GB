@@ -12,9 +12,42 @@
 
 typedef unsigned char UINT8;
 
+// ============================================
+// GAME CONSTANTS
+// ============================================
+
+// SCREEN BOUNDARIES
+#define BG_WIDTH 160
+#define BG_HEIGHT 144
+#define MIN_GIRL_X 23
+#define MAX_GIRL_X 138
+#define MIN_GIRL_Y 20
+#define MAX_GIRL_Y 113
+
+// ENTITY DIMENSIONS
+#define GIRL_WIDTH 16
+#define GIRL_HEIGHT 16
+#define SLIME_WIDTH 8
+#define SLIME_HEIGHT 8
+
+// TIMING CONSTANTS
+#define ANIM_TIMER_MAX 20
+#define ATTACK_LOCK_TIME 10
+#define SPAWN_TIMER_MAX 1000
+
+// SPAWNING BOUNDARIES
+#define SPAWN_MIN_X 32
+#define SPAWN_MAX_X 128
+#define SPAWN_MIN_Y 44
+#define SPAWN_MAX_Y 120
+
+// ============================================
+
 struct GameCharacter girl;
 struct Weapon sword;
 struct Enemy slime;
+struct Enemy slime_0;
+struct Enemy slime_1;
 
 //Constants
 UINT8 gamestate = 0;
@@ -26,8 +59,51 @@ UINT8 animtimer = 0;
 UINT8 locktimer = 0;
 UINT8 spawntimer = 0;
 UINT8 direction = 0; // 0 = down, 1 = up, 2 = left, 3 = right
+UINT8 room = 0;
+
+// Forward Declarations
+void moveslime(struct Enemy* character, UINT8 x, UINT8 y);
+
+//Normal Rooms
+
+//Room 0 Function
+void room_0()
+{
+    if (room == 0)
+    {
+        //Room 1 Code
+            slime_0.x = 26;
+            slime_0.y = 26;
+            slime_0.width = 8;
+            slime_0.height = 8;
+            slime_0.anim = 0;
+
+            //set_sprite_palette(16, 0xE0);
+            set_sprite_tile(16, 16);
+            slime_0.spritids[0] = 16;
+            set_sprite_tile(17, 17);
+            slime_0.spritids[1] = 17;
+            
+            moveslime(&slime_0, slime_0.x, slime_0.y);
+
+            slime_1.x = 26;
+            slime_1.y = 26;
+            slime_1.width = 8;
+            slime_1.height = 8;
+            slime_1.anim = 0;
+
+            //set_sprite_palette(16, 0xE0);
+            set_sprite_tile(16, 16);
+            slime_1.spritids[0] = 16;
+            set_sprite_tile(17, 17);
+            slime_1.spritids[1] = 17;
+            
+            moveslime(&slime_1, slime_1.x, slime_1.y);
+    }
+}
 
 // Function Prototypes
+
     void performantdelay(UINT8 numloops)
     {
         UINT8 i;
@@ -543,7 +619,7 @@ UINT8 direction = 0; // 0 = down, 1 = up, 2 = left, 3 = right
 
 void main()
 {   
-
+    room_0();
 
     while(1)
     {
@@ -599,7 +675,7 @@ void main()
         if(joypad() & J_LEFT)
         {
             moveswordl(&sword, sword.x, sword.y);
-            if(girl.x > 23)
+            if(girl.x > MIN_GIRL_X)
             {
                 moveswordl(&sword, sword.x, sword.y);
                 girl.x -= 2;
@@ -622,7 +698,7 @@ void main()
         if(joypad() & J_RIGHT)
         {
             moveswordr(&sword,sword.x, sword.y);
-            if(girl.x < 138)
+            if(girl.x < MAX_GIRL_X)
             {
                 moveswordr(&sword,sword.x, sword.y);
                 girl.x += 2;
@@ -646,7 +722,7 @@ void main()
         if(joypad() & J_UP)
         {
             moveswordu(&sword, sword.x, sword.y);
-            if(girl.y > 20)
+            if(girl.y > MIN_GIRL_Y)
             {
                 
                 girl.y -= 2;
@@ -668,7 +744,7 @@ void main()
         if(joypad() & J_DOWN)
         {
             moveswordd(&sword, sword.x, sword.y);
-            if(girl.y < 113)
+            if(girl.y < MAX_GIRL_Y)
             {
                 
                 girl.y += 2;
@@ -701,7 +777,7 @@ void main()
             moveslime(&slime, slime.x, slime.y);
             locktimer++;
         }
-        if(locktimer == 10)
+        if(locktimer == ATTACK_LOCK_TIME)
         {
             locktimer = 0;
             swordreset();
@@ -711,7 +787,7 @@ void main()
         {
             animslime();
             animtimer++;
-            if(animtimer == 20)
+            if(animtimer == ANIM_TIMER_MAX)
             {
                 animtimer = 0;
                 if(slime.anim == 0)
@@ -732,7 +808,7 @@ void main()
             moveslime(&slime, slime.x, slime.y);
         }
         spawntimer++;
-        if(spawntimer == 100)
+        if(spawntimer == SPAWN_TIMER_MAX)
         {
             spawntimer = 0;
             slime.death = 0;
