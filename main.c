@@ -12,6 +12,9 @@ typedef uint8_t UINT8;
 #ifndef UINT16
 typedef uint16_t UINT16;
 #endif
+#ifndef INT8
+typedef int8_t INT8;
+#endif
 #endif
 
 #include "GameCharacter.c"
@@ -88,6 +91,10 @@ typedef uint16_t UINT16;
 #define PLAYER_START_SPEED 2
 #define PLAYER_START_INVULN_TIME 0
 
+// Combat constants
+#define KNOCKBACK_FRAMES 6
+#define KNOCKBACK_STEP 2
+
 // Timer constants
 #define INVULN_FRAMES 10
 #define INVULN_FLASH_PERIOD 2 // Player flashes every frame when invulnerable
@@ -149,6 +156,11 @@ UINT8 direction = 0; // 0 = down, 1 = up, 2 = left, 3 = right
 UINT8 room = 0;
 UINT8 prev_pad = 0;
 
+//Knockback variables
+UINT8 knockback_timer = 0;
+INT8 knockback_dx = 0;
+INT8 knockback_dy = 0;
+
 // Forward Declarations
 void performantdelay(UINT8 numloops);
 void character_enemy_collision(struct GameCharacter* character, struct Enemy* enemy);
@@ -168,13 +180,13 @@ void attack(void);
 void swordreset(void);
 void room_0(void);
 void init_player_stats(void);
-void player_take_damage(UINT8 amount);
+UINT8 player_take_damage(UINT8 amount);
 void update_timers(void);
 
 //Normal Rooms
 
 // Helper function to initialize an enemy
-void player_take_damage(UINT8 amount)
+UINT8 player_take_damage(UINT8 amount)
 {
     if(player_stats.invuln_timer == 0 && player_stats.is_dead == 0)
     {
@@ -188,7 +200,9 @@ void player_take_damage(UINT8 amount)
             player_stats.current_health -= amount;
         }
         player_stats.invuln_timer = INVULN_FRAMES;
+        return 1;
     }
+    return 0;
 }            
 void init_player_stats(void)
 {
@@ -205,15 +219,32 @@ void update_timers(void)
 {
     if(player_stats.invuln_timer > 0 && player_stats.is_dead == 0)
     {
-        if(player_stats.invuln_timer % INVULN_FLASH_PERIOD == 0)
-        {
-            hide_character_sprites(&girl);
-        }
-        else
-        {
-            move_player(&girl, girl.x, girl.y);
-        }
         player_stats.invuln_timer--;
+    }
+
+    if(knockback_timer > 0 && player_stats.is_dead == 0)
+    {
+        girl.x += knockback_dx;
+        girl.y += knockback_dy;
+
+        if(girl.x < MIN_GIRL_X)
+        {
+            girl.x = MIN_GIRL_X;
+        }
+        if(girl.x > MAX_GIRL_X)
+        {
+            girl.x = MAX_GIRL_X;
+        }
+        if(girl.y < MIN_GIRL_Y)
+        {
+            girl.y = MIN_GIRL_Y;
+        }
+        if(girl.y > MAX_GIRL_Y)
+        {
+            girl.y = MAX_GIRL_Y;
+        }
+
+        knockback_timer--;
     }
 
     if(locktimer == ATTACK_LOCK_TIME)
@@ -229,6 +260,26 @@ void update_timers(void)
             weapon_enemy_collision(&sword, &enemies[i], i);
         }
         locktimer++;
+    }
+
+    if(player_stats.is_dead == 1)
+    {
+        hide_character_sprites(&girl);
+    }
+    else if(player_stats.invuln_timer > 0)
+    {
+        if(player_stats.invuln_timer % INVULN_FLASH_PERIOD == 0)
+        {
+            hide_character_sprites(&girl);
+        }
+        else
+        {
+            move_player(&girl, girl.x, girl.y);
+        }
+    }
+    else
+    {
+        move_player(&girl, girl.x, girl.y);
     }
 }
 
@@ -275,14 +326,46 @@ void character_enemy_collision(struct GameCharacter* character, struct Enemy* en
         {
             return;
         }
-    
         
         if (character->x < enemy->x + enemy->width - pad &&
         character->x + character->width - pad > enemy->x &&
         character->y < enemy->y + enemy->height - pad &&
         character->y + character->height - pad > enemy->y)
         {
-            player_take_damage(1);
+            UINT8 took_damage = player_take_damage(1);
+            if(took_damage)
+            {
+                UINT8 dx = (character->x > enemy->x) ? (character->x - enemy->x) : (enemy->x - character->x);
+                UINT8 dy = (character->y > enemy->y) ? (character->y - enemy->y) : (enemy->y - character->y);
+
+                if (character->x < enemy->x)
+                {
+                    knockback_dx = -KNOCKBACK_STEP;
+                }
+                else
+                {
+                    knockback_dx = KNOCKBACK_STEP;
+                }
+                if (character->y < enemy->y)
+                {
+                    knockback_dy = -KNOCKBACK_STEP;
+                }
+                else
+                {
+                    knockback_dy = KNOCKBACK_STEP;
+                }
+
+                if (dx < dy)
+                {
+                    knockback_dy = 0;
+                }
+                else
+                {
+                    knockback_dx = 0;
+                }
+
+                knockback_timer = KNOCKBACK_FRAMES;
+            }
         }
     }
 
@@ -754,7 +837,7 @@ void main(void)
 
         if(gamestate == 1)
         {
-        if(player_stats.is_dead == 0 && locktimer == 0)
+        if(player_stats.is_dead == 0 && locktimer == 0 && knockback_timer == 0)
         {
         if(joypad() & J_LEFT)
         {
