@@ -1,5 +1,25 @@
 #include <gb/gb.h>
 
+#if defined(__PORT_sm83)
+#include <types.h>
+#else
+#include <stdint.h>
+typedef uint8_t UINT8;
+typedef uint16_t UINT16;
+typedef uint8_t UBYTE;
+#endif
+
+struct PlayerStats {
+    UINT8 max_health;
+    UINT8 current_health;
+    UINT8 damage;
+    UINT8 range;
+    UINT8 speed;
+    UINT8 invuln_timer;
+    UINT8 is_dead; // 0 = alive, 1 = dead
+};
+
+
 struct GameCharacter {
     UBYTE spritids[4];
     UINT8 x;

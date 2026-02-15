@@ -4,13 +4,21 @@
 #include <stdint.h>
 #include <types.h>
 #include <gbdk/font.h>
+
+#if !defined(__PORT_sm83)
+#ifndef UINT8
+typedef uint8_t UINT8;
+#endif
+#ifndef UINT16
+typedef uint16_t UINT16;
+#endif
+#endif
+
 #include "GameCharacter.c"
 #include "Girl.c"
 #include "BackgroundTiles.c"
 #include "BackgroundMap.c"
 #include "windowmap.c"
-
-typedef unsigned char UINT8;
 
 // ============================================
 // GAME CONSTANTS
@@ -73,6 +81,14 @@ typedef unsigned char UINT8;
 #define SWORD_PALETTE S_PAL0
 #define ENEMY_PALETTE S_PAL1
 
+// Player stat on start constants
+#define PLAYER_START_MAX_HP 6
+#define PLAYER_START_DAMAGE 5
+#define PLAYER_START_RANGE 5
+#define PLAYER_START_SPEED 2
+#define PLAYER_START_INVULN_TIME 30
+
+
 // ============================================
 // SPRITE ALLOCATION MAP (for 8 enemies max)
 // ============================================
@@ -106,6 +122,7 @@ typedef unsigned char UINT8;
 struct GameCharacter girl;
 struct Weapon sword;
 struct Enemy slime;  // Legacy enemy (disabled, kept for reference)
+struct PlayerStats player_stats;
 
 // ============================================
 // ARRAYS
@@ -146,10 +163,21 @@ void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y);
 void attack(void);
 void swordreset(void);
 void room_0(void);
+void init_player_stats(void);
 
 //Normal Rooms
 
 // Helper function to initialize an enemy
+void init_player_stats(void)
+{
+    player_stats.max_health = PLAYER_START_MAX_HP;
+    player_stats.current_health = PLAYER_START_MAX_HP;
+    player_stats.damage = PLAYER_START_DAMAGE;
+    player_stats.range = PLAYER_START_RANGE;
+    player_stats.speed = PLAYER_START_SPEED;
+    player_stats.invuln_timer = PLAYER_START_INVULN_TIME;
+    player_stats.is_dead = 0;
+}
 void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y)
 {
     enemy->x = x;
@@ -638,7 +666,7 @@ void main(void)
                 
                 set_sprite_data(0, 22, Girl);
                 setup_player();
-                //setupslime();
+                init_player_stats();
                 setupsword();
                 room_0();  // Initialize room after sprite data is loaded
 
