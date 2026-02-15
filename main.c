@@ -35,6 +35,13 @@ typedef int8_t INT8;
 #define MIN_GIRL_Y 20
 #define MAX_GIRL_Y 113
 
+// WINDOW CONSTANTS
+#define DIGIT_TILE_BASE 1
+#define HUD_ROW 0
+#define HUD_HP_X 0
+#define HUD_DMG_X 4
+#define HUD_RANGE_X 8
+
 // PLAYER SPAWN
 #define PLAYER_SPAWN_X 80
 #define PLAYER_SPAWN_Y 36
@@ -83,6 +90,34 @@ typedef int8_t INT8;
 #define GIRL_PALETTE S_PAL0
 #define SWORD_PALETTE S_PAL0
 #define ENEMY_PALETTE S_PAL1
+
+// Window/font tile IDs (A-Z)
+#define TILE_A 0x0B
+#define TILE_B 0x0C
+#define TILE_C 0x0D
+#define TILE_D 0x0E
+#define TILE_E 0x0F
+#define TILE_F 0x10
+#define TILE_G 0x11
+#define TILE_H 0x12
+#define TILE_I 0x13
+#define TILE_J 0x14
+#define TILE_K 0x15
+#define TILE_L 0x16
+#define TILE_M 0x17
+#define TILE_N 0x18
+#define TILE_O 0x19
+#define TILE_P 0x1A
+#define TILE_Q 0x1B
+#define TILE_R 0x1C
+#define TILE_S 0x1D
+#define TILE_T 0x1E
+#define TILE_U 0x1F
+#define TILE_V 0x20
+#define TILE_W 0x21
+#define TILE_X 0x22
+#define TILE_Y 0x23
+#define TILE_Z 0x24
 
 // Player stat on start constants
 #define PLAYER_START_MAX_HP 6
@@ -182,10 +217,30 @@ void room_0(void);
 void init_player_stats(void);
 UINT8 player_take_damage(UINT8 amount);
 void update_timers(void);
+void write_window_2digits(UINT8 value, UINT8 x, UINT8 y);
+void update_window_stats_ui(void);
 
-//Normal Rooms
 
-// Helper function to initialize an enemy
+
+void update_window_stats_ui(void)
+{
+    set_win_tile_xy(HUD_HP_X, HUD_ROW, TILE_H); // HP label (heart tile)
+    set_win_tile_xy(HUD_HP_X + 1, HUD_ROW, TILE_P); 
+    write_window_2digits(player_stats.current_health, HUD_HP_X + 2, HUD_ROW);
+    //write_window_2digits(player_stats.damage, HUD_DMG_X, HUD_ROW);
+    //write_window_2digits(player_stats.range, HUD_RANGE_X, HUD_ROW);
+}
+
+void write_window_2digits(UINT8 value, UINT8 x, UINT8 y)
+{
+    // Write a two-digit number to the window at the specified position
+    // If value is less than 10, it will display as "0X"
+    UINT8 tens = value / 10;
+    UINT8 ones = value % 10;
+    
+    set_win_tile_xy(x, y, DIGIT_TILE_BASE + tens);
+    set_win_tile_xy(x + 1, y, DIGIT_TILE_BASE + ones);
+}
 UINT8 player_take_damage(UINT8 amount)
 {
     if(player_stats.invuln_timer == 0 && player_stats.is_dead == 0)
@@ -804,6 +859,7 @@ void main(void)
                 set_sprite_data(0, 22, Girl);
                 setup_player();
                 init_player_stats();
+                update_window_stats_ui();
                 setupsword();
                 room_0();  // Initialize room after sprite data is loaded
 
@@ -1003,6 +1059,7 @@ void main(void)
         */
         
         prev_pad = current_pad;
+        update_window_stats_ui();
         performantdelay(5);
         //animdelay(30);
     }
