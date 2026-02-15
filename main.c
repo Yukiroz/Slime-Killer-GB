@@ -87,7 +87,10 @@ typedef uint16_t UINT16;
 #define PLAYER_START_RANGE 5
 #define PLAYER_START_SPEED 2
 #define PLAYER_START_INVULN_TIME 0
-#define INVULN_FRAMES 5
+
+// Timer constants
+#define INVULN_FRAMES 10
+#define INVULN_FLASH_PERIOD 2 // Player flashes every frame when invulnerable
 
 
 // ============================================
@@ -200,8 +203,16 @@ void init_player_stats(void)
 
 void update_timers(void)
 {
-    if(player_stats.invuln_timer > 0)
+    if(player_stats.invuln_timer > 0 && player_stats.is_dead == 0)
     {
+        if(player_stats.invuln_timer % INVULN_FLASH_PERIOD == 0)
+        {
+            hide_character_sprites(&girl);
+        }
+        else
+        {
+            move_player(&girl, girl.x, girl.y);
+        }
         player_stats.invuln_timer--;
     }
 
