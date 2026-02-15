@@ -86,7 +86,8 @@ typedef uint16_t UINT16;
 #define PLAYER_START_DAMAGE 5
 #define PLAYER_START_RANGE 5
 #define PLAYER_START_SPEED 2
-#define PLAYER_START_INVULN_TIME 30
+#define PLAYER_START_INVULN_TIME 0
+#define INVULN_FRAMES 5
 
 
 // ============================================
@@ -164,10 +165,28 @@ void attack(void);
 void swordreset(void);
 void room_0(void);
 void init_player_stats(void);
+void player_take_damage(UINT8 amount);
+void update_timers(void);
 
 //Normal Rooms
 
 // Helper function to initialize an enemy
+void player_take_damage(UINT8 amount)
+{
+    if(player_stats.invuln_timer == 0 && player_stats.is_dead == 0)
+    {
+        if(amount >= player_stats.current_health)
+        {
+            player_stats.current_health = 0;
+            player_stats.is_dead = 1;
+        }
+        else
+        {
+            player_stats.current_health -= amount;
+        }
+        player_stats.invuln_timer = INVULN_FRAMES;
+    }
+}            
 void init_player_stats(void)
 {
     player_stats.max_health = PLAYER_START_MAX_HP;
@@ -178,6 +197,30 @@ void init_player_stats(void)
     player_stats.invuln_timer = PLAYER_START_INVULN_TIME;
     player_stats.is_dead = 0;
 }
+
+void update_timers(void)
+{
+    if(player_stats.invuln_timer > 0)
+    {
+        player_stats.invuln_timer--;
+    }
+
+    if(locktimer == ATTACK_LOCK_TIME)
+    {
+        locktimer = 0;
+        swordreset();
+    }
+
+    if(locktimer > 0)
+    {
+        for(UINT8 i = 0; i < 4; i++)
+        {
+            weapon_enemy_collision(&sword, &enemies[i], i);
+        }
+        locktimer++;
+    }
+}
+
 void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y)
 {
     enemy->x = x;
@@ -228,7 +271,7 @@ void character_enemy_collision(struct GameCharacter* character, struct Enemy* en
         character->y < enemy->y + enemy->height - pad &&
         character->y + character->height - pad > enemy->y)
         {
-            hide_character_sprites(character);
+            player_take_damage(1);
         }
     }
 
@@ -700,7 +743,7 @@ void main(void)
 
         if(gamestate == 1)
         {
-        if (locktimer == 0)
+        if(player_stats.is_dead == 0 && locktimer == 0)
         {
         if(joypad() & J_LEFT)
         {
@@ -782,20 +825,13 @@ void main(void)
             attack();
         }
         }
+
+        if(player_stats.is_dead == 1)
+        {
+            hide_character_sprites(&girl);
+        }
         
-        if(locktimer == ATTACK_LOCK_TIME)
-        {
-            locktimer = 0;
-            swordreset();
-        }
-        if(locktimer > 0)
-        {
-            // Weapon collision for all active enemies
-            for(UINT8 i = 0; i < 4; i++) {
-                weapon_enemy_collision(&sword, &enemies[i], i);
-            }
-            locktimer++;
-        }
+        update_timers();
 
         
         // Animate all enemies
@@ -825,9 +861,12 @@ void main(void)
         }
         
         // Character collision with all enemies
-        for(UINT8 i = 0; i < 4; i++)
+        if(player_stats.is_dead == 0)
         {
-            character_enemy_collision(&girl, &enemies[i]);
+            for(UINT8 i = 0; i < 4; i++)
+            {
+                character_enemy_collision(&girl, &enemies[i]);
+            }
         }
         }  // end gamestate == 1
 
