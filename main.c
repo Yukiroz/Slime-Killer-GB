@@ -39,14 +39,17 @@ typedef int8_t INT8;
 #define DIGIT_TILE_BASE 1
 #define HUD_ROW 0
 #define HUD_HP_X 0
-#define HUD_DMG_X 4
-#define HUD_RANGE_X 8
+#define HUD_DMG_X 5
+#define HUD_RANGE_X 10
 #define PAUSE_ROW 1
 #define PAUSE_TEXT_X 7
 #define ROOM_CLEAR_ROW 1
 #define ROOM_CLEAR_X 5
+#define ROOM_CLEAR_SHOW_FRAMES 15
 #define READY_ROW 1
-#define READY_X 0
+#define READY_X 7
+#define REWARD_ROW 1
+#define REWARD_X 7
 
 // TITLE SCREEN CONSTANTS
 #define TITLE_X 4
@@ -68,7 +71,8 @@ typedef int8_t INT8;
 
 // ENTITY LIMITS
 #define MAX_ENEMIES 8
-#define ACTIVE_ENEMY_COUNT 4
+#define ACTIVE_ENEMY_COUNT 6
+#define TOTAL_ROOMS 2
 
 // TIMING CONSTANTS
 #define ANIM_TIMER_MAX 20
@@ -76,6 +80,10 @@ typedef int8_t INT8;
 #define SPAWN_TIMER_MAX 1000
 #define SLIME_MOVE_INTERVAL 3
 #define ENEMY_START_DELAY_FRAMES 15
+#define SWORD_LUNGE_FRAMES 3
+#define SWORD_LUNGE_MAX_OFFSET 8
+#define PLAYER_LUNGE_STEP 3
+#define TRANSITION_COOLDOWN_FRAMES 10
 
 // SPAWNING BOUNDARIES
 #define SPAWN_MIN_X 32
@@ -142,7 +150,15 @@ typedef int8_t INT8;
 #define PLAYER_START_RANGE 5
 #define PLAYER_START_SPEED 2
 #define PLAYER_START_INVULN_TIME 0
+#define PLAYER_MAX_HP_CAP 30
+#define PLAYER_SPEED_CAP (PLAYER_START_SPEED + 3)
 #define HP_REWARD_AMOUNT 2
+#define DMG_REWARD_AMOUNT 2
+#define SPEED_REWARD_AMOUNT 1
+
+#define REWARD_HP 0
+#define REWARD_DMG 1
+#define REWARD_SPEED 2
 
 // Combat constants
 #define KNOCKBACK_FRAMES 6
@@ -209,11 +225,19 @@ UINT8 spawntimer = 0;
 UINT8 movetimer = 0;
 UINT8 direction = 0; // 0 = down, 1 = up, 2 = left, 3 = right
 UINT8 room = 0;
+UINT8 current_enemy_count = 4;
 UINT8 prev_pad = 0;
 UINT8 spawned_enemies = 0;
 UINT8 title_flash_timer = 0;
 UINT8 title_flash_visible = 1;
 UINT8 enemy_start_delay_timer = 0;
+UINT8 room_cleared = 0;
+UINT8 reward_active = 0;
+UINT8 reward_claimed = 0;
+UINT8 can_transition = 0;
+UINT8 reward_type = REWARD_HP;
+UINT8 room_clear_timer = 0;
+UINT8 transition_cooldown_timer = 0;
 font_t ui_font;
 //Knockback variables
 UINT8 knockback_timer = 0;
@@ -224,6 +248,7 @@ INT8 knockback_dy = 0;
 void performantdelay(UINT8 numloops);
 void character_enemy_collision(struct GameCharacter* character, struct Enemy* enemy);
 void hide_character_sprites(struct GameCharacter* character);
+void hide_sword_sprites(struct Weapon* weapon);
 void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 enemy_index);
 void move_weapon(struct Weapon* weapon, struct GameCharacter* owner);
 void animate_enemy(struct Enemy* enemy, UINT8 tile0, UINT8 tile1);
@@ -240,6 +265,8 @@ void attack(struct GameCharacter* owner, struct Weapon* weapon);
 void swordreset(struct GameCharacter* owner, struct Weapon* weapon);
 void move_sword_sprites_from_position(struct Weapon* weapon);
 void room_0(void);
+void room_1(void);
+void load_room(UINT8 room_id);
 void init_character_stats(struct PlayerStats* stats,
                          UINT8 max_health,
                          UINT8 damage,
@@ -261,6 +288,11 @@ void show_room_clear_ui(void);
 void hide_room_clear_ui(void);
 void show_ready_ui(void);
 void hide_ready_ui(void);
+void show_reward_ui(UINT8 reward);
+void hide_reward_ui(void);
+void show_game_over_ui(void);
+void roll_room_reward(void);
+void apply_reward(UINT8 reward);
 void draw_press_start(UINT8 visible);
 void init_title_screen(void);
 void update_title_screen(void);
@@ -344,14 +376,14 @@ void slime_can_move(struct Enemy* enemy, struct GameCharacter* target)
 
 void resolve_enemy_collisions(void)
 {
-    for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
+    for(UINT8 i = 0; i < current_enemy_count; i++)
     {
         if(enemies[i].death == 1)
         {
             continue;
         }
 
-        for(UINT8 j = i + 1; j < ACTIVE_ENEMY_COUNT; j++)
+        for(UINT8 j = i + 1; j < current_enemy_count; j++)
         {
             if(enemies[j].death == 1)
             {
@@ -427,8 +459,14 @@ void update_window_stats_ui(void)
     set_win_tile_xy(HUD_HP_X, HUD_ROW, TILE_H); // HP label (heart tile)
     set_win_tile_xy(HUD_HP_X + 1, HUD_ROW, TILE_P); 
     write_window_2digits(player_stats.current_health, HUD_HP_X + 2, HUD_ROW);
-    //write_window_2digits(player_stats.damage, HUD_DMG_X, HUD_ROW);
-    //write_window_2digits(player_stats.range, HUD_RANGE_X, HUD_ROW);
+
+    set_win_tile_xy(HUD_DMG_X, HUD_ROW, TILE_D);
+    set_win_tile_xy(HUD_DMG_X + 1, HUD_ROW, TILE_M);
+    write_window_2digits(player_stats.damage, HUD_DMG_X + 2, HUD_ROW);
+
+    set_win_tile_xy(HUD_RANGE_X, HUD_ROW, TILE_S);
+    set_win_tile_xy(HUD_RANGE_X + 1, HUD_ROW, TILE_P);
+    write_window_2digits(player_stats.speed, HUD_RANGE_X + 2, HUD_ROW);
 }
 
 void show_pause_ui(void)
@@ -485,6 +523,112 @@ void hide_ready_ui(void)
     for(UINT8 i = 0; i < 5; i++)
     {
         set_win_tile_xy(READY_X + i, READY_ROW, 0);
+    }
+}
+
+void show_reward_ui(UINT8 reward)
+{
+    if(reward == REWARD_HP)
+    {
+        set_win_tile_xy(REWARD_X + 0, REWARD_ROW, TILE_H);
+        set_win_tile_xy(REWARD_X + 1, REWARD_ROW, TILE_P);
+        set_win_tile_xy(REWARD_X + 2, REWARD_ROW, 0);
+        set_win_tile_xy(REWARD_X + 3, REWARD_ROW, TILE_U);
+        set_win_tile_xy(REWARD_X + 4, REWARD_ROW, TILE_P);
+    }
+    else if(reward == REWARD_DMG)
+    {
+        set_win_tile_xy(REWARD_X + 0, REWARD_ROW, TILE_D);
+        set_win_tile_xy(REWARD_X + 1, REWARD_ROW, TILE_M);
+        set_win_tile_xy(REWARD_X + 2, REWARD_ROW, TILE_G);
+        set_win_tile_xy(REWARD_X + 3, REWARD_ROW, 0);
+        set_win_tile_xy(REWARD_X + 4, REWARD_ROW, TILE_U);
+        set_win_tile_xy(REWARD_X + 5, REWARD_ROW, TILE_P);
+    }
+    else
+    {
+        set_win_tile_xy(REWARD_X + 0, REWARD_ROW, TILE_S);
+        set_win_tile_xy(REWARD_X + 1, REWARD_ROW, TILE_P);
+        set_win_tile_xy(REWARD_X + 2, REWARD_ROW, TILE_E);
+        set_win_tile_xy(REWARD_X + 3, REWARD_ROW, TILE_E);
+        set_win_tile_xy(REWARD_X + 4, REWARD_ROW, TILE_D);
+        set_win_tile_xy(REWARD_X + 5, REWARD_ROW, 0);
+        set_win_tile_xy(REWARD_X + 6, REWARD_ROW, TILE_U);
+        set_win_tile_xy(REWARD_X + 7, REWARD_ROW, TILE_P);
+    }
+}
+
+void hide_reward_ui(void)
+{
+    for(UINT8 i = 0; i < 10; i++)
+    {
+        set_win_tile_xy(REWARD_X + i, REWARD_ROW, 0);
+    }
+}
+
+void show_game_over_ui(void)
+{
+    for(UINT8 x = 0; x < 20; x++)
+    {
+        set_win_tile_xy(x, 0, 0);
+        set_win_tile_xy(x, 1, 0);
+    }
+
+    set_win_tile_xy(5, 1, TILE_G);
+    set_win_tile_xy(6, 1, TILE_A);
+    set_win_tile_xy(7, 1, TILE_M);
+    set_win_tile_xy(8, 1, TILE_E);
+    set_win_tile_xy(9, 1, 0);
+    set_win_tile_xy(10, 1, TILE_O);
+    set_win_tile_xy(11, 1, TILE_V);
+    set_win_tile_xy(12, 1, TILE_E);
+    set_win_tile_xy(13, 1, TILE_R);
+}
+
+void roll_room_reward(void)
+{
+    reward_type = rand() % 3;
+}
+
+void apply_reward(UINT8 reward)
+{
+    if(reward == REWARD_HP)
+    {
+        UINT8 boosted_max_hp = player_stats.max_health + HP_REWARD_AMOUNT;
+        if(boosted_max_hp > PLAYER_MAX_HP_CAP)
+        {
+            player_stats.max_health = PLAYER_MAX_HP_CAP;
+        }
+        else
+        {
+            player_stats.max_health = boosted_max_hp;
+        }
+
+        UINT8 boosted_hp = player_stats.current_health + HP_REWARD_AMOUNT;
+        if(boosted_hp > player_stats.max_health)
+        {
+            player_stats.current_health = player_stats.max_health;
+        }
+        else
+        {
+            player_stats.current_health = boosted_hp;
+        }
+    }
+    else if(reward == REWARD_DMG)
+    {
+        player_stats.damage += DMG_REWARD_AMOUNT;
+    }
+    else
+    {
+        UINT8 boosted_speed = player_stats.speed + SPEED_REWARD_AMOUNT;
+        if(boosted_speed > PLAYER_SPEED_CAP)
+        {
+            player_stats.speed = PLAYER_SPEED_CAP;
+        }
+        else
+        {
+            player_stats.speed = boosted_speed;
+        }
     }
 }
 
@@ -618,19 +762,115 @@ void update_timers(struct GameCharacter* player, struct Weapon* weapon)
         knockback_timer--;
     }
 
-    if(locktimer == ATTACK_LOCK_TIME)
-    {
-        locktimer = 0;
-        swordreset(player, weapon);
-    }
-
     if(locktimer > 0)
     {
+        UINT8 lunge_offset = SWORD_LUNGE_MAX_OFFSET;
+
+        if(locktimer == 1)
+        {
+            lunge_offset = 3;
+        }
+        else if(locktimer == 2)
+        {
+            lunge_offset = 6;
+        }
+
+        if(direction == 2)
+        {
+            if(player->x > MIN_GIRL_X)
+            {
+                UINT8 distance_to_min_x = player->x - MIN_GIRL_X;
+                if(distance_to_min_x <= PLAYER_LUNGE_STEP)
+                {
+                    player->x = MIN_GIRL_X;
+                }
+                else
+                {
+                    player->x -= PLAYER_LUNGE_STEP;
+                }
+            }
+        }
+        else if(direction == 3)
+        {
+            if(player->x < MAX_GIRL_X)
+            {
+                UINT8 distance_to_max_x = MAX_GIRL_X - player->x;
+                if(distance_to_max_x <= PLAYER_LUNGE_STEP)
+                {
+                    player->x = MAX_GIRL_X;
+                }
+                else
+                {
+                    player->x += PLAYER_LUNGE_STEP;
+                }
+            }
+        }
+        else if(direction == 1)
+        {
+            if(player->y > MIN_GIRL_Y)
+            {
+                UINT8 distance_to_min_y = player->y - MIN_GIRL_Y;
+                if(distance_to_min_y <= PLAYER_LUNGE_STEP)
+                {
+                    player->y = MIN_GIRL_Y;
+                }
+                else
+                {
+                    player->y -= PLAYER_LUNGE_STEP;
+                }
+            }
+        }
+        else
+        {
+            if(player->y < MAX_GIRL_Y)
+            {
+                UINT8 distance_to_max_y = MAX_GIRL_Y - player->y;
+                if(distance_to_max_y <= PLAYER_LUNGE_STEP)
+                {
+                    player->y = MAX_GIRL_Y;
+                }
+                else
+                {
+                    player->y += PLAYER_LUNGE_STEP;
+                }
+            }
+        }
+
+        move_weapon(weapon, player);
+
+        if(direction == 2)
+        {
+            weapon->x -= lunge_offset;
+        }
+        else if(direction == 3)
+        {
+            weapon->x += lunge_offset;
+        }
+        else if(direction == 1)
+        {
+            weapon->y -= lunge_offset;
+        }
+        else
+        {
+            weapon->y += lunge_offset;
+        }
+
+        move_sword_sprites_from_position(weapon);
+
         for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
         {
             weapon_enemy_collision(weapon, &enemies[i], i);
         }
-        locktimer++;
+
+        if(locktimer >= SWORD_LUNGE_FRAMES)
+        {
+            locktimer = 0;
+            swordreset(player, weapon);
+        }
+        else
+        {
+            locktimer++;
+        }
     }
 
     if(player_stats.is_dead == 1)
@@ -680,11 +920,64 @@ void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y)
 //Room 0 Function
 void room_0(void)
 {
+    current_enemy_count = 4;
     setup_enemy(&enemies[0], 22, 26, 50);   // Left top
     setup_enemy(&enemies[1], 23, 26, 70);   // Left bottom
     setup_enemy(&enemies[2], 24, 134, 50);  // Right top
     setup_enemy(&enemies[3], 25, 134, 70);  // Right bottom
+    setup_enemy(&enemies[4], 26, 0, 0);     // Unused in room 0
+    setup_enemy(&enemies[5], 27, 0, 0);     // Unused in room 0
+    enemies[4].death = 1;
+    enemies[5].death = 1;
     enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
+    room_cleared = 0;
+    reward_active = 0;
+    reward_claimed = 0;
+    can_transition = 0;
+    room_clear_timer = 0;
+    transition_cooldown_timer = 0;
+}
+
+//Room 1 Function (currently duplicated from room_0 for upgrade testing)
+void room_1(void)
+{
+    current_enemy_count = 6;
+    setup_enemy(&enemies[0], 22, 26, 50);   // Left top
+    setup_enemy(&enemies[1], 23, 26, 70);   // Left bottom
+    setup_enemy(&enemies[2], 24, 26, 90);  // Right top
+    setup_enemy(&enemies[3], 25, 134, 50);  // Right bottom
+    setup_enemy(&enemies[4], 26, 134, 70);  
+    setup_enemy(&enemies[5], 27, 134, 90);  
+    enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
+    room_cleared = 0;
+    reward_active = 0;
+    reward_claimed = 0;
+    can_transition = 0;
+    room_clear_timer = 0;
+    transition_cooldown_timer = 0;
+}
+
+void load_room(UINT8 room_id)
+{
+    if(room_id == 0)
+    {
+        room_0();
+    }
+    else if(room_id == 1)
+    {
+        room_1();
+    }
+    else
+    {
+        room_0();
+    }
+
+    setup_character(&girl, PLAYER_SPAWN_X, PLAYER_SPAWN_Y);
+    direction = 0;
+    move_weapon(&sword, &girl);
+    hide_room_clear_ui();
+    hide_reward_ui();
+    hide_ready_ui();
 }
 
 // Function Prototypes
@@ -755,6 +1048,13 @@ void hide_character_sprites(struct GameCharacter* character)
             hide_sprite(character->spritids[i]);
         }
     }
+
+void hide_sword_sprites(struct Weapon* weapon)
+{
+    hide_sprite(weapon->spritids[0]);
+    hide_sprite(weapon->spritids[1]);
+}
+
 void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 enemy_index)
     {
         // Only check collision if enemy is alive
@@ -921,6 +1221,8 @@ void move_sword_sprites_from_position(struct Weapon* weapon)
 
 void attack(struct GameCharacter* owner, struct Weapon* weapon)
     {
+        (void)owner;
+        (void)weapon;
         // Reset hit tracking for new attack
         for(UINT8 i = 0; i < MAX_ENEMIES; i++)
         {
@@ -928,27 +1230,6 @@ void attack(struct GameCharacter* owner, struct Weapon* weapon)
         }
 
         sfx_swing();
-        
-        move_weapon(weapon, owner);
-
-        if(direction == 2) // left
-        {
-            weapon->x -= 8;
-        }
-        else if(direction == 3) // right
-        {
-            weapon->x += 8;
-        }
-        else if(direction == 1) // up
-        {
-            weapon->y -= 8;
-        }
-        else // down
-        {
-            weapon->y += 8;
-        }
-
-        move_sword_sprites_from_position(weapon);
 
         if (locktimer == 0)
         {
@@ -1230,7 +1511,7 @@ void main(void)
                 init_player_stats();
                 update_window_stats_ui();
                 setupsword();
-                room_0();  // Initialize room after sprite data is loaded
+                load_room(room);  // Initialize room after sprite data is loaded
 
                 
                 // Palette encoding: bits 1-0 = C0, 3-2 = C1, 5-4 = C2, 7-6 = C3
@@ -1246,7 +1527,33 @@ void main(void)
                 SHOW_WIN;
                 DISPLAY_ON;
             }
-            else if(gamestate == 1)
+            else if(gamestate == 1 && player_stats.is_dead == 1)
+            {
+                room = 0;
+                locktimer = 0;
+                knockback_timer = 0;
+                knockback_dx = 0;
+                knockback_dy = 0;
+                room_cleared = 0;
+                reward_active = 0;
+                reward_claimed = 0;
+                can_transition = 0;
+                room_clear_timer = 0;
+                transition_cooldown_timer = 0;
+
+                setup_player();
+                init_player_stats();
+                setupsword();
+                load_room(room);
+
+                set_win_tiles(0, 0, 20, 2, windowmap);
+                hide_pause_ui();
+                hide_room_clear_ui();
+                hide_reward_ui();
+                hide_ready_ui();
+                update_window_stats_ui();
+            }
+            else if(gamestate == 1 && room_cleared == 0 && reward_active == 0 && can_transition == 0)
             {
                 gamestate = 2;
                 show_pause_ui();
@@ -1374,7 +1681,7 @@ void main(void)
             }
         }        
 
-        if(joypad() & J_A && !(prev_pad & J_A))
+        if((joypad() & J_A) && !(prev_pad & J_A) && reward_active == 0)
         {
             attack(active_player, &sword);
         }
@@ -1387,6 +1694,21 @@ void main(void)
         
         update_timers(active_player, &sword);
 
+        if(player_stats.is_dead == 1)
+        {
+            hide_character_sprites(active_player);
+            hide_sword_sprites(&sword);
+            hide_pause_ui();
+            hide_room_clear_ui();
+            hide_reward_ui();
+            hide_ready_ui();
+            show_game_over_ui();
+
+            prev_pad = current_pad;
+            performantdelay(5);
+            continue;
+        }
+
         UINT8 can_enemies_move = 1;
         UINT8 delay_active = 0;
         if(enemy_start_delay_timer > 0)
@@ -1396,25 +1718,9 @@ void main(void)
             can_enemies_move = 0;
         }
 
-        if(delay_active)
-        {
-            if(enemy_start_delay_timer & 0x04)
-            {
-                show_ready_ui();
-            }
-            else
-            {
-                hide_ready_ui();
-            }
-        }
-        else
-        {
-            hide_ready_ui();
-        }
-
         // Animate all enemies
         UINT8 all_enemies_dead = 1;
-        for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
+        for(UINT8 i = 0; i < current_enemy_count; i++)
         {
             if(enemies[i].death == 0)
             {
@@ -1435,7 +1741,7 @@ void main(void)
 
         resolve_enemy_collisions();
 
-        for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
+        for(UINT8 i = 0; i < current_enemy_count; i++)
         {
             if(enemies[i].death == 0)
             {
@@ -1445,11 +1751,78 @@ void main(void)
 
         if(all_enemies_dead)
         {
-            show_room_clear_ui();
+            hide_ready_ui();
+
+            if(room_cleared == 0)
+            {
+                room_cleared = 1;
+                room_clear_timer = ROOM_CLEAR_SHOW_FRAMES;
+            }
+
+            if(room_clear_timer > 0)
+            {
+                room_clear_timer--;
+                hide_reward_ui();
+                show_room_clear_ui();
+            }
+            else
+            {
+                if(reward_claimed == 0 && reward_active == 0)
+                {
+                    roll_room_reward();
+                    reward_active = 1;
+                }
+
+                if(reward_active)
+                {
+                    hide_room_clear_ui();
+                    show_reward_ui(reward_type);
+
+                          if((current_pad & J_START) && !(prev_pad & J_START))
+                    {
+                        apply_reward(reward_type);
+                        reward_active = 0;
+                        reward_claimed = 1;
+                        can_transition = 1;
+                            transition_cooldown_timer = TRANSITION_COOLDOWN_FRAMES;
+                        hide_reward_ui();
+                        hide_room_clear_ui();
+                        update_window_stats_ui();
+                    }
+                }
+                else
+                {
+                    hide_reward_ui();
+                    hide_room_clear_ui();
+                }
+            }
         }
         else
         {
+            room_cleared = 0;
+            reward_active = 0;
+            reward_claimed = 0;
+            can_transition = 0;
+            room_clear_timer = 0;
+            transition_cooldown_timer = 0;
             hide_room_clear_ui();
+            hide_reward_ui();
+
+            if(delay_active)
+            {
+                if(enemy_start_delay_timer & 0x04)
+                {
+                    show_ready_ui();
+                }
+                else
+                {
+                    hide_ready_ui();
+                }
+            }
+            else
+            {
+                hide_ready_ui();
+            }
         }
         
         // Animation timer for all enemies
@@ -1457,7 +1830,7 @@ void main(void)
         if(animtimer == ANIM_TIMER_MAX)
         {
             animtimer = 0;
-            for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
+            for(UINT8 i = 0; i < current_enemy_count; i++)
             {
                 enemies[i].anim = (enemies[i].anim == 0) ? 1 : 0;
             }
@@ -1466,9 +1839,23 @@ void main(void)
         // Character collision with all enemies
         if(player_stats.is_dead == 0)
         {
-            for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
+            for(UINT8 i = 0; i < current_enemy_count; i++)
             {
                 character_enemy_collision(active_player, &enemies[i]);
+            }
+        }
+
+        if(can_transition == 1)
+        {
+            if(transition_cooldown_timer > 0)
+            {
+                transition_cooldown_timer--;
+            }
+            else if(((current_pad & J_A) && !(prev_pad & J_A)) ||
+                    ((current_pad & J_START) && !(prev_pad & J_START)))
+            {
+                room = (room + 1) % TOTAL_ROOMS;
+                load_room(room);
             }
         }
         }  // end gamestate == 1
