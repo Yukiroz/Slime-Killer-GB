@@ -45,6 +45,8 @@ typedef int8_t INT8;
 #define PAUSE_TEXT_X 7
 #define ROOM_CLEAR_ROW 1
 #define ROOM_CLEAR_X 5
+#define READY_ROW 1
+#define READY_X 0
 
 // TITLE SCREEN CONSTANTS
 #define TITLE_X 4
@@ -62,6 +64,7 @@ typedef int8_t INT8;
 #define GIRL_HEIGHT 16
 #define SLIME_WIDTH 8
 #define SLIME_HEIGHT 8
+#define SLIME_BASE_HP 10
 
 // ENTITY LIMITS
 #define MAX_ENEMIES 8
@@ -72,7 +75,7 @@ typedef int8_t INT8;
 #define ATTACK_LOCK_TIME 10
 #define SPAWN_TIMER_MAX 1000
 #define SLIME_MOVE_INTERVAL 3
-#define ENEMY_START_DELAY_FRAMES 20
+#define ENEMY_START_DELAY_FRAMES 15
 
 // SPAWNING BOUNDARIES
 #define SPAWN_MIN_X 32
@@ -139,6 +142,7 @@ typedef int8_t INT8;
 #define PLAYER_START_RANGE 5
 #define PLAYER_START_SPEED 2
 #define PLAYER_START_INVULN_TIME 0
+#define HP_REWARD_AMOUNT 2
 
 // Combat constants
 #define KNOCKBACK_FRAMES 6
@@ -255,6 +259,8 @@ void show_pause_ui(void);
 void hide_pause_ui(void);
 void show_room_clear_ui(void);
 void hide_room_clear_ui(void);
+void show_ready_ui(void);
+void hide_ready_ui(void);
 void draw_press_start(UINT8 visible);
 void init_title_screen(void);
 void update_title_screen(void);
@@ -465,6 +471,23 @@ void hide_room_clear_ui(void)
     }
 }
 
+void show_ready_ui(void)
+{
+    set_win_tile_xy(READY_X + 0, READY_ROW, TILE_R);
+    set_win_tile_xy(READY_X + 1, READY_ROW, TILE_E);
+    set_win_tile_xy(READY_X + 2, READY_ROW, TILE_A);
+    set_win_tile_xy(READY_X + 3, READY_ROW, TILE_D);
+    set_win_tile_xy(READY_X + 4, READY_ROW, TILE_Y);
+}
+
+void hide_ready_ui(void)
+{
+    for(UINT8 i = 0; i < 5; i++)
+    {
+        set_win_tile_xy(READY_X + i, READY_ROW, 0);
+    }
+}
+
 void write_window_2digits(UINT8 value, UINT8 x, UINT8 y)
 {
     // Write a two-digit number to the window at the specified position
@@ -644,8 +667,8 @@ void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y)
     enemy->height = 8;
     enemy->anim = 0;
     enemy->death = 0;
-    enemy->max_health = 2;
-    enemy->current_health = 2;
+    enemy->max_health = SLIME_BASE_HP;
+    enemy->current_health = enemy->max_health;
     
     set_sprite_tile(oam_slot, 16);
     set_sprite_prop(oam_slot, ENEMY_PALETTE);
@@ -776,7 +799,14 @@ void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 en
                 hit_this_attack[enemy_index] = 1;
                 if(enemy->current_health > 0)
                 {
-                    enemy->current_health--;
+                    if(player_stats.damage >= enemy->current_health)
+                    {
+                        enemy->current_health = 0;
+                    }
+                    else
+                    {
+                        enemy->current_health -= player_stats.damage;
+                    }
 
                     if(direction == 2) // left
                     {
@@ -1237,7 +1267,7 @@ void main(void)
         {
         struct GameCharacter* active_player = &girl;
         
-        if(player_stats.is_dead == 0 && locktimer == 0 && knockback_timer == 0)
+        if(player_stats.is_dead == 0 && locktimer == 0 && knockback_timer == 0 && enemy_start_delay_timer == 0)
         {
         if(joypad() & J_LEFT)
         {
@@ -1245,7 +1275,15 @@ void main(void)
             move_weapon(&sword, active_player);
             if(active_player->x > MIN_GIRL_X)
             {
-                active_player->x -= 2;
+                UINT8 distance_to_min_x = active_player->x - MIN_GIRL_X;
+                if(distance_to_min_x < player_stats.speed)
+                {
+                    active_player->x = MIN_GIRL_X;
+                }
+                else
+                {
+                    active_player->x -= player_stats.speed;
+                }
                 
             }
             if(active_player->anim != 2 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
@@ -1263,7 +1301,15 @@ void main(void)
             move_weapon(&sword, active_player);
             if(active_player->x < MAX_GIRL_X)
             {
-                active_player->x += 2;
+                UINT8 distance_to_max_x = MAX_GIRL_X - active_player->x;
+                if(distance_to_max_x < player_stats.speed)
+                {
+                    active_player->x = MAX_GIRL_X;
+                }
+                else
+                {
+                    active_player->x += player_stats.speed;
+                }
                 
             }
             
@@ -1282,8 +1328,15 @@ void main(void)
             move_weapon(&sword, active_player);
             if(active_player->y > MIN_GIRL_Y)
             {
-                
-                active_player->y -= 2;
+                UINT8 distance_to_min_y = active_player->y - MIN_GIRL_Y;
+                if(distance_to_min_y < player_stats.speed)
+                {
+                    active_player->y = MIN_GIRL_Y;
+                }
+                else
+                {
+                    active_player->y -= player_stats.speed;
+                }
             }
             if(active_player->anim != 6)
             {
@@ -1300,8 +1353,15 @@ void main(void)
             move_weapon(&sword, active_player);
             if(active_player->y < MAX_GIRL_Y)
             {
-                
-                active_player->y += 2;
+                UINT8 distance_to_max_y = MAX_GIRL_Y - active_player->y;
+                if(distance_to_max_y < player_stats.speed)
+                {
+                    active_player->y = MAX_GIRL_Y;
+                }
+                else
+                {
+                    active_player->y += player_stats.speed;
+                }
             }
             
             if(active_player->anim != 0)
@@ -1328,10 +1388,28 @@ void main(void)
         update_timers(active_player, &sword);
 
         UINT8 can_enemies_move = 1;
+        UINT8 delay_active = 0;
         if(enemy_start_delay_timer > 0)
         {
+            delay_active = 1;
             enemy_start_delay_timer--;
             can_enemies_move = 0;
+        }
+
+        if(delay_active)
+        {
+            if(enemy_start_delay_timer & 0x04)
+            {
+                show_ready_ui();
+            }
+            else
+            {
+                hide_ready_ui();
+            }
+        }
+        else
+        {
+            hide_ready_ui();
         }
 
         // Animate all enemies
