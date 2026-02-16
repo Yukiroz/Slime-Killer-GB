@@ -49,4 +49,11 @@ struct Enemy {
     UINT8 max_health;
     UINT8 current_health;
     UINT8 move_timer;
+    UINT8 type;  // 0=slime, 1=boss
+    UINT8 spawn_timer;  // For boss: countdown to spawn next slime
+    UINT8 attack_timer;  // Boss: countdown to attack animation
+    UINT8 attack_anim_frame;  // Boss: current attack animation frame (0-4)
+    UINT8 jump_timer;  // Slime: countdown to next jump
+    UINT8 jump_target_x;  // Slime: target x position for jump
+    UINT8 jump_target_y;  // Slime: target y position for jump
 };

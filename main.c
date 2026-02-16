@@ -19,6 +19,7 @@ typedef int8_t INT8;
 
 #include "GameCharacter.c"
 #include "Girl.c"
+#include "Boss.c"
 #include "BackgroundTiles.c"
 #include "BackgroundMap.c"
 #include "windowmap.c"
@@ -68,17 +69,19 @@ typedef int8_t INT8;
 #define SLIME_WIDTH 8
 #define SLIME_HEIGHT 8
 #define SLIME_BASE_HP 10
+#define BOSS_BASE_HP 100
 
 // ENTITY LIMITS
 #define MAX_ENEMIES 8
 #define ACTIVE_ENEMY_COUNT 6
-#define TOTAL_ROOMS 2
+#define TOTAL_ROOMS 3
 
 // TIMING CONSTANTS
 #define ANIM_TIMER_MAX 20
 #define ATTACK_LOCK_TIME 10
 #define SPAWN_TIMER_MAX 1000
 #define SLIME_MOVE_INTERVAL 3
+#define SLIME_MOVE_INTERVAL_FAST 1
 #define ENEMY_START_DELAY_FRAMES 15
 #define SWORD_LUNGE_FRAMES 3
 #define SWORD_LUNGE_MAX_OFFSET 8
@@ -95,10 +98,10 @@ typedef int8_t INT8;
 #define ENABLE_RESPAWN 0
 
 // ENEMY MOVEMENT BOUNDARIES
-#define MIN_ENEMY_X 16
-#define MAX_ENEMY_X 152
-#define MIN_ENEMY_Y 20
-#define MAX_ENEMY_Y 128
+#define MIN_ENEMY_X 24
+#define MAX_ENEMY_X 144
+#define MIN_ENEMY_Y 28
+#define MAX_ENEMY_Y 120
 
 // Palette flag fallbacks for older GBDK headers
 #ifndef S_PALETTE
@@ -115,6 +118,23 @@ typedef int8_t INT8;
 #define GIRL_PALETTE S_PAL0
 #define SWORD_PALETTE S_PAL0
 #define ENEMY_PALETTE S_PAL1
+
+// ENEMY TYPES
+#define ENEMY_TYPE_SLIME 0
+#define ENEMY_TYPE_BOSS 1
+
+// BOSS BEHAVIOR
+#define BOSS_SPAWN_MIN_FRAMES 20
+#define BOSS_SPAWN_MAX_FRAMES 30
+#define BOSS_MAX_SLIMES 6
+#define BOSS_DEATH_SLIMES 4
+#define BOSS_ATTACK_COOLDOWN 60  // Frames between attacks
+#define BOSS_ATTACK_ANIM_FRAMES 5  // Number of animation frames before attack
+#define BOSS_ATTACK_FRAME_DURATION 8  // Frames per animation frame
+
+// SLIME JUMP BEHAVIOR
+#define SLIME_JUMP_COOLDOWN 30  // Frames between jumps
+#define SLIME_JUMP_DISTANCE 16  // Maximum jump distance in pixels
 
 // Window/font tile IDs (A-Z)
 #define TILE_A 0x0B
@@ -148,7 +168,7 @@ typedef int8_t INT8;
 #define PLAYER_START_MAX_HP 6
 #define PLAYER_START_DAMAGE 5
 #define PLAYER_START_RANGE 5
-#define PLAYER_START_SPEED 2
+#define PLAYER_START_SPEED 3
 #define PLAYER_START_INVULN_TIME 0
 #define PLAYER_MAX_HP_CAP 30
 #define PLAYER_SPEED_CAP (PLAYER_START_SPEED + 3)
@@ -249,6 +269,7 @@ void performantdelay(UINT8 numloops);
 void character_enemy_collision(struct GameCharacter* character, struct Enemy* enemy);
 void hide_character_sprites(struct GameCharacter* character);
 void hide_sword_sprites(struct Weapon* weapon);
+void hide_enemy_sprites(struct Enemy* enemy);
 void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 enemy_index);
 void move_weapon(struct Weapon* weapon, struct GameCharacter* owner);
 void animate_enemy(struct Enemy* enemy, UINT8 tile0, UINT8 tile1);
@@ -260,12 +281,13 @@ void setup_character(struct GameCharacter* character, UINT8 x, UINT8 y);
 void setup_player(void);
 void setupslime(void);
 void setupsword(void);
-void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y);
+void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y, UINT8 type);
 void attack(struct GameCharacter* owner, struct Weapon* weapon);
 void swordreset(struct GameCharacter* owner, struct Weapon* weapon);
 void move_sword_sprites_from_position(struct Weapon* weapon);
 void room_0(void);
 void room_1(void);
+void room_2(void);
 void load_room(UINT8 room_id);
 void init_character_stats(struct PlayerStats* stats,
                          UINT8 max_health,
@@ -297,8 +319,12 @@ void draw_press_start(UINT8 visible);
 void init_title_screen(void);
 void update_title_screen(void);
 void slime_ai(struct GameCharacter* girl, struct Enemy* enemy);
+void boss_ai(struct GameCharacter* player, struct Enemy* boss);
 void slime_can_move(struct Enemy* enemy, struct GameCharacter* target);
 void resolve_enemy_collisions(void);
+UINT8 count_alive_slimes(void);
+void spawn_slime_near_boss(struct Enemy* boss);
+void spawn_boss_death_slimes(struct Enemy* boss);
 
 void draw_press_start(UINT8 visible)
 {
@@ -363,11 +389,41 @@ void update_title_screen(void)
 
 void slime_can_move(struct Enemy* enemy, struct GameCharacter* target)
 {
-
-    if(enemy->move_timer == SLIME_MOVE_INTERVAL)
+    // Use faster movement interval for rooms 0 and 1, normal for room 2 (boss room)
+    UINT8 move_interval = (room < 2) ? SLIME_MOVE_INTERVAL_FAST : SLIME_MOVE_INTERVAL;
+    
+    if(enemy->move_timer == move_interval)
     {
         enemy->move_timer = 0;
-        slime_ai(target, enemy);
+        
+        // Use appropriate AI based on enemy type
+        if(enemy->type == ENEMY_TYPE_SLIME)
+        {
+            slime_ai(target, enemy);
+        }
+        else if(enemy->type == ENEMY_TYPE_BOSS)
+        {
+            boss_ai(target, enemy);
+            
+            // Handle boss spawning slimes
+            if(enemy->spawn_timer > 0)
+            {
+                enemy->spawn_timer--;
+            }
+            else
+            {
+                // Check if we can spawn more slimes (max 6)
+                UINT8 slime_count = count_alive_slimes();
+                if(slime_count < BOSS_MAX_SLIMES)
+                {
+                    spawn_slime_near_boss(enemy);
+                }
+                
+                // Reset spawn timer for next spawn
+                enemy->spawn_timer = BOSS_SPAWN_MIN_FRAMES + (rand() % (BOSS_SPAWN_MAX_FRAMES - BOSS_SPAWN_MIN_FRAMES + 1));
+            }
+        }
+        
         enemy_check_borders(enemy);
         move_enemy_small(enemy, enemy->x, enemy->y);        
     }
@@ -437,23 +493,272 @@ void resolve_enemy_collisions(void)
 
 void slime_ai(struct GameCharacter* character, struct Enemy* enemy)
 {
-    if (character->x > enemy->x)
+    // Jumper AI - slimes jump toward the player periodically
+    if(enemy->jump_timer > 0)
     {
-        enemy->x++;
+        enemy->jump_timer--;
+        
+        // Move toward jump target
+        if(enemy->x != enemy->jump_target_x || enemy->y != enemy->jump_target_y)
+        {
+            // Fast movement toward target (4 pixels per frame)
+            UINT8 moved = 0;
+            for(UINT8 step = 0; step < 4; step++)
+            {
+                if(enemy->jump_target_x > enemy->x)
+                {
+                    enemy->x++;
+                    moved = 1;
+                }
+                else if(enemy->jump_target_x < enemy->x)
+                {
+                    enemy->x--;
+                    moved = 1;
+                }
+                
+                if(enemy->jump_target_y > enemy->y)
+                {
+                    enemy->y++;
+                    moved = 1;
+                }
+                else if(enemy->jump_target_y < enemy->y)
+                {
+                    enemy->y--;
+                    moved = 1;
+                }
+                
+                // Stop if we reached the target
+                if(enemy->x == enemy->jump_target_x && enemy->y == enemy->jump_target_y)
+                {
+                    break;
+                }
+            }
+            
+            // Show jumping animation (frame 2) when moving
+            enemy->anim = 1;
+        }
+        else
+        {
+            // Standing still - show idle animation (frame 1)
+            enemy->anim = 0;
+        }
     }
-    if (character->x < enemy->x)
+    else
     {
-        enemy->x--;
+        // Jump cooldown complete - calculate new jump target toward player
+        enemy->jump_timer = SLIME_JUMP_COOLDOWN;
+        
+        // Calculate direction to player
+        INT8 dx = (INT8)character->x - (INT8)enemy->x;
+        INT8 dy = (INT8)character->y - (INT8)enemy->y;
+        
+        // Normalize and scale to jump distance
+        if(dx > SLIME_JUMP_DISTANCE) dx = SLIME_JUMP_DISTANCE;
+        if(dx < -SLIME_JUMP_DISTANCE) dx = -SLIME_JUMP_DISTANCE;
+        if(dy > SLIME_JUMP_DISTANCE) dy = SLIME_JUMP_DISTANCE;
+        if(dy < -SLIME_JUMP_DISTANCE) dy = -SLIME_JUMP_DISTANCE;
+        
+        // Set jump target
+        enemy->jump_target_x = enemy->x + dx;
+        enemy->jump_target_y = enemy->y + dy;
+        
+        // Show jumping animation when starting new jump
+        enemy->anim = 1;
     }
-    if (character-> y> enemy->y)
-    {
-        enemy->y++;
-    }
-    if (character->y < enemy->y)
-    {
-        enemy->y--;
-    }    
 }
+
+void boss_ai(struct GameCharacter* player, struct Enemy* boss)
+{
+    // Handle attack animation timing
+    if(boss->attack_timer > 0)
+    {
+        boss->attack_timer--;
+        
+        // Update animation frame based on timer
+        // Calculate which frame we should be on (0-4)
+        UINT8 total_anim_time = BOSS_ATTACK_ANIM_FRAMES * BOSS_ATTACK_FRAME_DURATION;
+        if(boss->attack_timer < total_anim_time)
+        {
+            // During attack animation
+            UINT8 time_into_anim = total_anim_time - boss->attack_timer;
+            boss->attack_anim_frame = time_into_anim / BOSS_ATTACK_FRAME_DURATION;
+            if(boss->attack_anim_frame >= BOSS_ATTACK_ANIM_FRAMES)
+            {
+                boss->attack_anim_frame = BOSS_ATTACK_ANIM_FRAMES - 1;
+            }
+        }
+        else
+        {
+            // Not attacking yet, stay in idle
+            boss->attack_anim_frame = 0;
+        }
+    }
+    else
+    {
+        // Attack! Reset timer and animation
+        boss->attack_timer = BOSS_ATTACK_COOLDOWN;
+        boss->attack_anim_frame = 0;
+    }
+    
+    // Chase AI - move toward player
+    if (player->x > boss->x)
+    {
+        boss->x++;
+    }
+    if (player->x < boss->x)
+    {
+        boss->x--;
+    }
+    if (player->y > boss->y)
+    {
+        boss->y++;
+    }
+    if (player->y < boss->y)
+    {
+        boss->y--;
+    }
+}
+
+UINT8 count_alive_slimes(void)
+{
+    UINT8 count = 0;
+    for(UINT8 i = 0; i < MAX_ENEMIES; i++)
+    {
+        if(enemies[i].death == 0 && enemies[i].type == ENEMY_TYPE_SLIME)
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
+void spawn_slime_near_boss(struct Enemy* boss)
+{
+    // Find first available enemy slot
+    for(UINT8 i = 0; i < MAX_ENEMIES; i++)
+    {
+        if(enemies[i].death == 1)
+        {
+            // Found empty slot - spawn slime near boss (with some offset)
+            INT8 offset_x = (rand() % 32) - 16;  // Random offset -16 to +16
+            INT8 offset_y = (rand() % 32) - 16;
+            
+            // Calculate spawn position with safe clamping
+            UINT8 spawn_x, spawn_y;
+            
+            // Handle X coordinate
+            if(offset_x < 0 && boss->x < (UINT8)(-offset_x))
+            {
+                spawn_x = SPAWN_MIN_X;  // Would underflow
+            }
+            else
+            {
+                spawn_x = boss->x + offset_x;
+            }
+            
+            // Handle Y coordinate
+            if(offset_y < 0 && boss->y < (UINT8)(-offset_y))
+            {
+                spawn_y = SPAWN_MIN_Y;  // Would underflow
+            }
+            else
+            {
+                spawn_y = boss->y + offset_y;
+            }
+            
+            // Clamp to valid spawn range
+            if(spawn_x < SPAWN_MIN_X) spawn_x = SPAWN_MIN_X;
+            if(spawn_x > SPAWN_MAX_X) spawn_x = SPAWN_MAX_X;
+            if(spawn_y < SPAWN_MIN_Y) spawn_y = SPAWN_MIN_Y;
+            if(spawn_y > SPAWN_MAX_Y) spawn_y = SPAWN_MAX_Y;
+            
+            // Use first available OAM slot (26-37 range for spawned slimes)
+            UINT8 oam_slot = 26 + i;
+            //if(oam_slot > 37) oam_slot = 26;  // Wrap around if needed
+            
+            setup_enemy(&enemies[i], oam_slot, spawn_x, spawn_y, ENEMY_TYPE_SLIME);
+            current_enemy_count++;
+            break;  // Only spawn one slime per call
+        }
+    }
+}
+
+void spawn_boss_death_slimes(struct Enemy* boss)
+{
+    UINT8 spawned = 0;
+    const INT8 offsets[4][2] = {
+        {-12, -12},  // Top-left
+        {12, -12},   // Top-right
+        {-12, 12},   // Bottom-left
+        {12, 12}     // Bottom-right
+    };
+    
+    // Find boss index to skip it when spawning
+    UINT8 boss_index = MAX_ENEMIES;
+    for(UINT8 i = 0; i < MAX_ENEMIES; i++)
+    {
+        if(&enemies[i] == boss)
+        {
+            boss_index = i;
+            break;
+        }
+    }
+    
+    for(UINT8 i = 0; i < MAX_ENEMIES && spawned < BOSS_DEATH_SLIMES; i++)
+    {
+        // Skip the boss's own slot to avoid sprite ID conflicts
+        if(i == boss_index)
+        {
+            continue;
+        }
+        
+        if(enemies[i].death == 1)
+        {
+            INT8 offset_x = offsets[spawned][0];
+            INT8 offset_y = offsets[spawned][1];
+            UINT8 spawn_x, spawn_y;
+            
+            // Handle X coordinate with underflow protection
+            if(offset_x < 0 && boss->x < (UINT8)(-offset_x))
+            {
+                spawn_x = MIN_ENEMY_X;
+            }
+            else
+            {
+                spawn_x = boss->x + offset_x;
+            }
+            
+            // Handle Y coordinate with underflow protection
+            if(offset_y < 0 && boss->y < (UINT8)(-offset_y))
+            {
+                spawn_y = MIN_ENEMY_Y;
+            }
+            else
+            {
+                spawn_y = boss->y + offset_y;
+            }
+            
+            // Clamp to valid range
+            if(spawn_x < MIN_ENEMY_X) spawn_x = MIN_ENEMY_X;
+            if(spawn_x > MAX_ENEMY_X) spawn_x = MAX_ENEMY_X;
+            if(spawn_y < MIN_ENEMY_Y) spawn_y = MIN_ENEMY_Y;
+            if(spawn_y > MAX_ENEMY_Y) spawn_y = MAX_ENEMY_Y;
+            
+            UINT8 oam_slot = 26 + i;
+            
+            setup_enemy(&enemies[i], oam_slot, spawn_x, spawn_y, ENEMY_TYPE_SLIME);
+            spawned++;
+        }
+    }
+    
+    // Update enemy count to include new slimes (cap at MAX_ENEMIES)
+    current_enemy_count += spawned;
+    if(current_enemy_count > MAX_ENEMIES)
+    {
+        current_enemy_count = MAX_ENEMIES;
+    }
+}
+
 void update_window_stats_ui(void)
 {
     set_win_tile_xy(HUD_HP_X, HUD_ROW, TILE_H); // HP label (heart tile)
@@ -857,9 +1162,14 @@ void update_timers(struct GameCharacter* player, struct Weapon* weapon)
 
         move_sword_sprites_from_position(weapon);
 
-        for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
+        UINT8 max_check = (current_enemy_count > MAX_ENEMIES) ? MAX_ENEMIES : current_enemy_count;
+        for(UINT8 i = 0; i < max_check; i++)
         {
-            weapon_enemy_collision(weapon, &enemies[i], i);
+            // Skip dead enemies
+            if(enemies[i].death == 0)
+            {
+                weapon_enemy_collision(weapon, &enemies[i], i);
+            }
         }
 
         if(locktimer >= SWORD_LUNGE_FRAMES)
@@ -899,20 +1209,63 @@ void update_timers(struct GameCharacter* player, struct Weapon* weapon)
     }
 }
 
-void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y)
+void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y, UINT8 type)
 {
+    enemy->type = type;
     enemy->x = x;
     enemy->y = y;
-    enemy->width = 8;
-    enemy->height = 8;
     enemy->anim = 0;
     enemy->death = 0;
-    enemy->max_health = SLIME_BASE_HP;
-    enemy->current_health = enemy->max_health;
+    enemy->move_timer = 0;  // Initialize movement timer
     
-    set_sprite_tile(oam_slot, 16);
-    set_sprite_prop(oam_slot, ENEMY_PALETTE);
-    enemy->spritids[0] = oam_slot;
+    if(type == ENEMY_TYPE_SLIME)
+    {
+        enemy->width = 8;
+        enemy->height = 8;
+        enemy->max_health = SLIME_BASE_HP;
+        enemy->current_health = enemy->max_health;
+        enemy->spawn_timer = 0;  // Slimes don't spawn others
+        enemy->attack_timer = 0;
+        enemy->attack_anim_frame = 0;
+        enemy->jump_timer = SLIME_JUMP_COOLDOWN;  // Initialize jump timer
+        enemy->jump_target_x = x;
+        enemy->jump_target_y = y;
+        
+        // Single sprite for slime
+        set_sprite_tile(oam_slot, 16);
+        set_sprite_prop(oam_slot, ENEMY_PALETTE);
+        enemy->spritids[0] = oam_slot;
+        
+        // Clear unused sprite IDs to prevent stale data
+        enemy->spritids[1] = 0xFF;
+        enemy->spritids[2] = 0xFF;
+        enemy->spritids[3] = 0xFF;
+    }
+    else if(type == ENEMY_TYPE_BOSS)
+    {
+        enemy->width = 16;
+        enemy->height = 16;
+        enemy->max_health = BOSS_BASE_HP;
+        enemy->current_health = enemy->max_health;
+        
+        // Initialize spawn timer with random value
+        enemy->spawn_timer = BOSS_SPAWN_MIN_FRAMES + (rand() % (BOSS_SPAWN_MAX_FRAMES - BOSS_SPAWN_MIN_FRAMES + 1));
+        
+        // Initialize attack animation fields
+        enemy->attack_timer = BOSS_ATTACK_COOLDOWN;
+        enemy->attack_anim_frame = 0;
+        enemy->jump_timer = 0;
+        enemy->jump_target_x = x;
+        enemy->jump_target_y = y;
+        
+        // 4 sprites in 2x2 grid for boss
+        for(UINT8 i = 0; i < 4; i++)
+        {
+            set_sprite_tile(oam_slot + i, 22 + i);  // Boss tiles 22-25
+            set_sprite_prop(oam_slot + i, ENEMY_PALETTE);
+            enemy->spritids[i] = oam_slot + i;
+        }
+    }
     
     move_enemy_small(enemy, x, y);
 }
@@ -921,14 +1274,18 @@ void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y)
 void room_0(void)
 {
     current_enemy_count = 4;
-    setup_enemy(&enemies[0], 22, 26, 50);   // Left top
-    setup_enemy(&enemies[1], 23, 26, 70);   // Left bottom
-    setup_enemy(&enemies[2], 24, 134, 50);  // Right top
-    setup_enemy(&enemies[3], 25, 134, 70);  // Right bottom
-    setup_enemy(&enemies[4], 26, 0, 0);     // Unused in room 0
-    setup_enemy(&enemies[5], 27, 0, 0);     // Unused in room 0
-    enemies[4].death = 1;
-    enemies[5].death = 1;
+    setup_enemy(&enemies[0], 22, 26, 50, ENEMY_TYPE_SLIME);   // Left top
+    setup_enemy(&enemies[1], 23, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
+    setup_enemy(&enemies[2], 24, 134, 50, ENEMY_TYPE_SLIME);  // Right top
+    setup_enemy(&enemies[3], 25, 134, 70, ENEMY_TYPE_SLIME);  // Right bottom
+    
+    // Mark all other enemy slots as dead
+    for(UINT8 i = 4; i < MAX_ENEMIES; i++)
+    {
+        enemies[i].death = 1;
+        hide_enemy_sprites(&enemies[i]);
+    }
+    
     enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
     room_cleared = 0;
     reward_active = 0;
@@ -942,12 +1299,43 @@ void room_0(void)
 void room_1(void)
 {
     current_enemy_count = 6;
-    setup_enemy(&enemies[0], 22, 26, 50);   // Left top
-    setup_enemy(&enemies[1], 23, 26, 70);   // Left bottom
-    setup_enemy(&enemies[2], 24, 26, 90);  // Right top
-    setup_enemy(&enemies[3], 25, 134, 50);  // Right bottom
-    setup_enemy(&enemies[4], 26, 134, 70);  
-    setup_enemy(&enemies[5], 27, 134, 90);  
+    setup_enemy(&enemies[0], 22, 26, 50, ENEMY_TYPE_SLIME);   // Left top
+    setup_enemy(&enemies[1], 23, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
+    setup_enemy(&enemies[2], 24, 26, 90, ENEMY_TYPE_SLIME);  // Right top
+    setup_enemy(&enemies[3], 25, 134, 50, ENEMY_TYPE_SLIME);  // Right bottom
+    setup_enemy(&enemies[4], 26, 134, 70, ENEMY_TYPE_SLIME);  
+    setup_enemy(&enemies[5], 27, 134, 90, ENEMY_TYPE_SLIME);
+    
+    // Mark all other enemy slots as dead
+    for(UINT8 i = 6; i < MAX_ENEMIES; i++)
+    {
+        enemies[i].death = 1;
+        hide_enemy_sprites(&enemies[i]);
+    }
+    
+    enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
+    room_cleared = 0;
+    reward_active = 0;
+    reward_claimed = 0;
+    can_transition = 0;
+    room_clear_timer = 0;
+    transition_cooldown_timer = 0;
+}
+
+//Room 2 Function - Boss Room
+void room_2(void)
+{
+    current_enemy_count = 1;  // Just the boss
+    // Boss uses 4 OAM slots (22-25) for 16x16 sprite
+    setup_enemy(&enemies[0], 22, 80, 60, ENEMY_TYPE_BOSS);
+    
+    // Mark all other enemies as dead and hide their sprites
+    for(UINT8 i = 1; i < MAX_ENEMIES; i++)
+    {
+        enemies[i].death = 1;
+        hide_enemy_sprites(&enemies[i]);
+    }
+    
     enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
     room_cleared = 0;
     reward_active = 0;
@@ -966,6 +1354,10 @@ void load_room(UINT8 room_id)
     else if(room_id == 1)
     {
         room_1();
+    }
+    else if(room_id == 2)
+    {
+        room_2();
     }
     else
     {
@@ -1055,6 +1447,23 @@ void hide_sword_sprites(struct Weapon* weapon)
     hide_sprite(weapon->spritids[1]);
 }
 
+void hide_enemy_sprites(struct Enemy* enemy)
+{
+    if(enemy->type == ENEMY_TYPE_SLIME)
+    {
+        hide_sprite(enemy->spritids[0]);
+        enemy->spritids[0] = 0xFF;  // Mark as unused
+    }
+    else if(enemy->type == ENEMY_TYPE_BOSS)
+    {
+        for(UINT8 i = 0; i < 4; i++)
+        {
+            hide_sprite(enemy->spritids[i]);
+            enemy->spritids[i] = 0xFF;  // Mark as unused
+        }
+    }
+}
+
 void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 enemy_index)
     {
         // Only check collision if enemy is alive
@@ -1133,8 +1542,20 @@ void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 en
                 if(enemy->current_health == 0)
                 {
                     enemy->death = 1;
-                    enemy->x = 0;
-                    enemy->y = 0;
+                    hide_enemy_sprites(enemy);
+                    
+                    // Check if boss - spawn death slimes AFTER hiding boss sprites
+                    if(enemy->type == ENEMY_TYPE_BOSS)
+                    {
+                        // Clamp boss position to valid range before spawning
+                        if(enemy->x < MIN_ENEMY_X) enemy->x = MIN_ENEMY_X;
+                        if(enemy->x > MAX_ENEMY_X) enemy->x = MAX_ENEMY_X;
+                        if(enemy->y < MIN_ENEMY_Y) enemy->y = MIN_ENEMY_Y;
+                        if(enemy->y > MAX_ENEMY_Y) enemy->y = MAX_ENEMY_Y;
+                        
+                        spawn_boss_death_slimes(enemy);
+                    }
+                    
                     score = score ++;
                 }
             }
@@ -1248,18 +1669,42 @@ void swordreset(struct GameCharacter* owner, struct Weapon* weapon)
     }
 void move_enemy_small(struct Enemy* character, UINT8 x, UINT8 y)
     {
-        move_sprite(character->spritids[0], x, y);
+        if(character->type == ENEMY_TYPE_SLIME)
+        {
+            // Slime is 8x8 - single sprite
+            move_sprite(character->spritids[0], x, y);
+        }
+        else if(character->type == ENEMY_TYPE_BOSS)
+        {
+            // Boss is 16x16 - 2x2 grid of sprites
+            move_sprite(character->spritids[0], x, y);
+            move_sprite(character->spritids[1], x + spritesize, y);
+            move_sprite(character->spritids[2], x, y + spritesize);
+            move_sprite(character->spritids[3], x + spritesize, y + spritesize);
+        }
     }
 void animate_enemy(struct Enemy* enemy, UINT8 tile0, UINT8 tile1)
     {
-        // Now just changes the tile in spritids[0] based on anim state
-        if(enemy->anim == 0)
+        if(enemy->type == ENEMY_TYPE_SLIME)
         {
-            set_sprite_tile(enemy->spritids[0], tile0);
+            // Slime is single sprite - just swap between two tiles
+            if(enemy->anim == 0)
+            {
+                set_sprite_tile(enemy->spritids[0], tile0);
+            }
+            else if(enemy->anim == 1)
+            {
+                set_sprite_tile(enemy->spritids[0], tile1);
+            }
         }
-        else if(enemy->anim == 1)
+        else if(enemy->type == ENEMY_TYPE_BOSS)
         {
-            set_sprite_tile(enemy->spritids[0], tile1);
+            // Boss is 2x2 grid - static sprite (no animation for now)
+            // Uses tiles 22-25 for the 2x2 grid
+            for(UINT8 i = 0; i < 4; i++)
+            {
+                set_sprite_tile(enemy->spritids[i], 22 + i);
+            }
         }
     }
 void enemy_check_borders(struct Enemy* enemy)
@@ -1506,7 +1951,8 @@ void main(void)
                 
                 
                 
-                set_sprite_data(0, 22, Girl);
+                set_sprite_data(0, 22, Girl);  // Girl + Slime + Sword tiles (0-21)
+                set_sprite_data(22, 9, Boss);   // Boss tiles (22-30) - includes attack animation frames
                 setup_player();
                 init_player_stats();
                 update_window_stats_ui();
@@ -1729,13 +2175,31 @@ void main(void)
                 {
                     slime_can_move(&enemies[i], active_player);
                 }
-                animate_enemy(&enemies[i], 16, 17);
+                
+                // Animate based on enemy type
+                if(enemies[i].type == ENEMY_TYPE_SLIME)
+                {
+                    animate_enemy(&enemies[i], 16, 17);  // Slime tiles
+                }
+                else if(enemies[i].type == ENEMY_TYPE_BOSS)
+                {
+                    // Boss attack animation: cycles through frames before attacking
+                    // Frames 0-1: idle (22-25), Frames 2-4: attack windup (26-29)
+                    UINT8 base_tile = (enemies[i].attack_anim_frame < 2) ? 22 : 26;
+                    
+                    // Update all 4 sprite tiles for the 2x2 boss
+                    for(UINT8 j = 0; j < 4; j++)
+                    {
+                        if(enemies[i].spritids[j] != 0xFF)
+                        {
+                            set_sprite_tile(enemies[i].spritids[j], base_tile + j);
+                        }
+                    }
+                }
             }
             else if(enemies[i].death == 1)
             {
-                enemies[i].x = 0;
-                enemies[i].y = 0;
-                move_enemy_small(&enemies[i], 0, 0);
+                hide_enemy_sprites(&enemies[i]);
             }
         }
 
@@ -1839,9 +2303,14 @@ void main(void)
         // Character collision with all enemies
         if(player_stats.is_dead == 0)
         {
-            for(UINT8 i = 0; i < current_enemy_count; i++)
+            UINT8 max_check = (current_enemy_count > MAX_ENEMIES) ? MAX_ENEMIES : current_enemy_count;
+            for(UINT8 i = 0; i < max_check; i++)
             {
-                character_enemy_collision(active_player, &enemies[i]);
+                // Skip dead enemies entirely
+                if(enemies[i].death == 0)
+                {
+                    character_enemy_collision(active_player, &enemies[i]);
+                }
             }
         }
 
