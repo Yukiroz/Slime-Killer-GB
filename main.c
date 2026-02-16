@@ -54,11 +54,13 @@ typedef int8_t INT8;
 
 // ENTITY LIMITS
 #define MAX_ENEMIES 8
+#define ACTIVE_ENEMY_COUNT 4
 
 // TIMING CONSTANTS
 #define ANIM_TIMER_MAX 20
 #define ATTACK_LOCK_TIME 10
 #define SPAWN_TIMER_MAX 1000
+#define SLIME_MOVE_INTERVAL 3
 
 // SPAWNING BOUNDARIES
 #define SPAWN_MIN_X 32
@@ -187,10 +189,11 @@ UINT8 pad = 2;
 UINT8 animtimer = 0;
 UINT8 locktimer = 0;
 UINT8 spawntimer = 0;
+UINT8 movetimer = 0;
 UINT8 direction = 0; // 0 = down, 1 = up, 2 = left, 3 = right
 UINT8 room = 0;
 UINT8 prev_pad = 0;
-
+UINT8 spawned_enemies = 0;
 //Knockback variables
 UINT8 knockback_timer = 0;
 INT8 knockback_dx = 0;
@@ -201,27 +204,68 @@ void performantdelay(UINT8 numloops);
 void character_enemy_collision(struct GameCharacter* character, struct Enemy* enemy);
 void hide_character_sprites(struct GameCharacter* character);
 void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 enemy_index);
-void move_weapon(struct Weapon* weapon);
+void move_weapon(struct Weapon* weapon, struct GameCharacter* owner);
 void animate_enemy(struct Enemy* enemy, UINT8 tile0, UINT8 tile1);
 void enemy_check_borders(struct Enemy* enemy);
 void character_set_sprite(struct GameCharacter* character, UINT8 anim_state);
 void move_enemy_small(struct Enemy* character, UINT8 x, UINT8 y);
 void move_player(struct GameCharacter* character, UINT8 x, UINT8 y);
+void setup_character(struct GameCharacter* character, UINT8 x, UINT8 y);
 void setup_player(void);
 void setupslime(void);
 void setupsword(void);
 void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y);
-void attack(void);
-void swordreset(void);
+void attack(struct GameCharacter* owner, struct Weapon* weapon);
+void swordreset(struct GameCharacter* owner, struct Weapon* weapon);
+void move_sword_sprites_from_position(struct Weapon* weapon);
 void room_0(void);
+void init_character_stats(struct PlayerStats* stats,
+                         UINT8 max_health,
+                         UINT8 damage,
+                         UINT8 range,
+                         UINT8 speed,
+                         UINT8 invuln_time);
 void init_player_stats(void);
 UINT8 player_take_damage(UINT8 amount);
-void update_timers(void);
+void update_timers(struct GameCharacter* player, struct Weapon* weapon);
 void write_window_2digits(UINT8 value, UINT8 x, UINT8 y);
 void update_window_stats_ui(void);
+void slime_ai(struct GameCharacter* girl, struct Enemy* enemy);
+void slime_can_move(struct Enemy* enemy, struct GameCharacter* target);
+
+void slime_can_move(struct Enemy* enemy, struct GameCharacter* target)
+{
+
+    if(enemy->move_timer == SLIME_MOVE_INTERVAL)
+    {
+        enemy->move_timer = 0;
+        slime_ai(target, enemy);
+        enemy_check_borders(enemy);
+        move_enemy_small(enemy, enemy->x, enemy->y);        
+    }
+    enemy->move_timer++;
+}
 
 
-
+void slime_ai(struct GameCharacter* character, struct Enemy* enemy)
+{
+    if (character->x > enemy->x)
+    {
+        enemy->x++;
+    }
+    if (character->x < enemy->x)
+    {
+        enemy->x--;
+    }
+    if (character-> y> enemy->y)
+    {
+        enemy->y++;
+    }
+    if (character->y < enemy->y)
+    {
+        enemy->y--;
+    }    
+}
 void update_window_stats_ui(void)
 {
     set_win_tile_xy(HUD_HP_X, HUD_ROW, TILE_H); // HP label (heart tile)
@@ -261,16 +305,31 @@ UINT8 player_take_damage(UINT8 amount)
 }            
 void init_player_stats(void)
 {
-    player_stats.max_health = PLAYER_START_MAX_HP;
-    player_stats.current_health = PLAYER_START_MAX_HP;
-    player_stats.damage = PLAYER_START_DAMAGE;
-    player_stats.range = PLAYER_START_RANGE;
-    player_stats.speed = PLAYER_START_SPEED;
-    player_stats.invuln_timer = PLAYER_START_INVULN_TIME;
-    player_stats.is_dead = 0;
+    init_character_stats(&player_stats,
+                         PLAYER_START_MAX_HP,
+                         PLAYER_START_DAMAGE,
+                         PLAYER_START_RANGE,
+                         PLAYER_START_SPEED,
+                         PLAYER_START_INVULN_TIME);
 }
 
-void update_timers(void)
+void init_character_stats(struct PlayerStats* stats,
+                         UINT8 max_health,
+                         UINT8 damage,
+                         UINT8 range,
+                         UINT8 speed,
+                         UINT8 invuln_time)
+{
+    stats->max_health = max_health;
+    stats->current_health = max_health;
+    stats->damage = damage;
+    stats->range = range;
+    stats->speed = speed;
+    stats->invuln_timer = invuln_time;
+    stats->is_dead = 0;
+}
+
+void update_timers(struct GameCharacter* player, struct Weapon* weapon)
 {
     if(player_stats.invuln_timer > 0 && player_stats.is_dead == 0)
     {
@@ -279,24 +338,35 @@ void update_timers(void)
 
     if(knockback_timer > 0 && player_stats.is_dead == 0)
     {
-        girl.x += knockback_dx;
-        girl.y += knockback_dy;
+        player->x += knockback_dx;
+        player->y += knockback_dy;
 
-        if(girl.x < MIN_GIRL_X)
+        if(player->x < MIN_GIRL_X)
         {
-            girl.x = MIN_GIRL_X;
+            player->x = MIN_GIRL_X;
         }
-        if(girl.x > MAX_GIRL_X)
+        if(player->x > MAX_GIRL_X)
         {
-            girl.x = MAX_GIRL_X;
+            player->x = MAX_GIRL_X;
         }
-        if(girl.y < MIN_GIRL_Y)
+        if(player->y < MIN_GIRL_Y)
         {
-            girl.y = MIN_GIRL_Y;
+            player->y = MIN_GIRL_Y;
         }
-        if(girl.y > MAX_GIRL_Y)
+        if(player->y > MAX_GIRL_Y)
         {
-            girl.y = MAX_GIRL_Y;
+            player->y = MAX_GIRL_Y;
+        }
+
+        if(locktimer == 0)
+        {
+            move_weapon(weapon, player);
+        }
+        else
+        {
+            weapon->x += knockback_dx;
+            weapon->y += knockback_dy;
+            move_sword_sprites_from_position(weapon);
         }
 
         knockback_timer--;
@@ -305,36 +375,41 @@ void update_timers(void)
     if(locktimer == ATTACK_LOCK_TIME)
     {
         locktimer = 0;
-        swordreset();
+        swordreset(player, weapon);
     }
 
     if(locktimer > 0)
     {
-        for(UINT8 i = 0; i < 4; i++)
+        for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
         {
-            weapon_enemy_collision(&sword, &enemies[i], i);
+            weapon_enemy_collision(weapon, &enemies[i], i);
         }
         locktimer++;
     }
 
     if(player_stats.is_dead == 1)
     {
-        hide_character_sprites(&girl);
+        hide_character_sprites(player);
     }
     else if(player_stats.invuln_timer > 0)
     {
         if(player_stats.invuln_timer % INVULN_FLASH_PERIOD == 0)
         {
-            hide_character_sprites(&girl);
+            hide_character_sprites(player);
         }
         else
         {
-            move_player(&girl, girl.x, girl.y);
+            move_player(player, player->x, player->y);
         }
     }
     else
     {
-        move_player(&girl, girl.x, girl.y);
+        move_player(player, player->x, player->y);
+    }
+
+    if(player_stats.is_dead == 0 && locktimer == 0)
+    {
+        move_weapon(weapon, player);
     }
 }
 
@@ -487,64 +562,79 @@ void move_player(struct GameCharacter* character, UINT8 x, UINT8 y)
         move_sprite(character->spritids[2], x, y + spritesize);
         move_sprite(character->spritids[3], x + spritesize, y + spritesize);
     }
-void move_weapon(struct Weapon* weapon)
+void move_weapon(struct Weapon* weapon, struct GameCharacter* owner)
     {
         // Uses global direction variable: 0=down, 1=up, 2=left, 3=right
         // All directions now use OAM slots 4-5
         if(direction == 2) // left
         {
-            sword.x = girl.x - 3;
-            sword.y = girl.y + 8;
+            weapon->x = owner->x;
+            weapon->y = owner->y + 8;
             set_sprite_tile(4, 18);
             set_sprite_prop(4, 0);
-            sword.spritids[0] = 4;
+            weapon->spritids[0] = 4;
             set_sprite_tile(5, 19);
             set_sprite_prop(5, 0);
-            sword.spritids[1] = 5;
-            move_sprite(weapon->spritids[0], sword.x, sword.y);
-            move_sprite(weapon->spritids[1], sword.x - spritesize, sword.y);
+            weapon->spritids[1] = 5;
+            move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+            move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
         }
         else if(direction == 3) // right
         {
-            sword.x = girl.x + 21;
-            sword.y = girl.y + 8;
+            weapon->x = owner->x + 18;
+            weapon->y = owner->y + 8;
             set_sprite_tile(4, 18);
             set_sprite_prop(4, S_FLIPX);
-            sword.spritids[1] = 4;
+            weapon->spritids[1] = 4;
             set_sprite_tile(5, 19);
             set_sprite_prop(5, S_FLIPX);
-            sword.spritids[0] = 5;
-            move_sprite(weapon->spritids[0], sword.x, sword.y);
-            move_sprite(weapon->spritids[1], sword.x - spritesize, sword.y);
+            weapon->spritids[0] = 5;
+            move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+            move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
         }
         else if(direction == 1) // up
         {
-            sword.x = girl.x + 9;
-            sword.y = girl.y;
+            weapon->x = owner->x + 9;
+            weapon->y = owner->y + 3;
             set_sprite_tile(4, 20);
             set_sprite_prop(4, S_FLIPX);
-            sword.spritids[0] = 4;
+            weapon->spritids[0] = 4;
             set_sprite_tile(5, 21);
             set_sprite_prop(5, S_FLIPX);
-            sword.spritids[1] = 5;
-            move_sprite(weapon->spritids[0], sword.x, sword.y);
-            move_sprite(weapon->spritids[1], sword.x, sword.y - spritesize);
+            weapon->spritids[1] = 5;
+            move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+            move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
         }
         else if(direction == 0) // down
         {
-            sword.x = girl.x - 2;
-            sword.y = girl.y + 20;
+            weapon->x = owner->x - 2;
+            weapon->y = owner->y + 18;
             set_sprite_tile(4, 20);
             set_sprite_prop(4, S_FLIPY);
-            sword.spritids[1] = 4;
+            weapon->spritids[1] = 4;
             set_sprite_tile(5, 21);
             set_sprite_prop(5, S_FLIPY);
-            sword.spritids[0] = 5;
-            move_sprite(weapon->spritids[0], sword.x, sword.y);
-            move_sprite(weapon->spritids[1], sword.x, sword.y - spritesize);
+            weapon->spritids[0] = 5;
+            move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+            move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
         }
     }
-void attack(void)
+
+void move_sword_sprites_from_position(struct Weapon* weapon)
+    {
+        if(direction == 2 || direction == 3)
+        {
+            move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+            move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
+        }
+        else
+        {
+            move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+            move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
+        }
+    }
+
+void attack(struct GameCharacter* owner, struct Weapon* weapon)
     {
         // Reset hit tracking for new attack
         for(UINT8 i = 0; i < MAX_ENEMIES; i++)
@@ -552,53 +642,41 @@ void attack(void)
             hit_this_attack[i] = 0;
         }
         
-        move_weapon(&sword);
-        if(direction == 0)
+        move_weapon(weapon, owner);
+
+        if(direction == 2) // left
         {
-            sword.y = sword.y + 6;
+            weapon->x -= 8;
         }
-        else if(direction == 1)
+        else if(direction == 3) // right
         {
-            sword.y = sword.y - 6;
+            weapon->x += 8;
         }
-        else if(direction == 2)
+        else if(direction == 1) // up
         {
-            sword.x = sword.x - 6;
+            weapon->y -= 8;
         }
-        else if(direction == 3)
+        else // down
         {
-            sword.x = sword.x + 6;
+            weapon->y += 8;
         }
+
+        move_sword_sprites_from_position(weapon);
+
         if (locktimer == 0)
         {
             locktimer ++;
         }
     }
-void swordreset(void)
+void swordreset(struct GameCharacter* owner, struct Weapon* weapon)
     {
         // Reset hit tracking for next attack
         for(UINT8 i = 0; i < MAX_ENEMIES; i++)
         {
             hit_this_attack[i] = 0;
         }
-        
-        if(direction == 0)
-        {
-            sword.y = sword.y - 8;
-        }
-        else if(direction == 1)
-        {
-            sword.y = sword.y + 8;
-        }
-        else if(direction == 2)
-        {
-            sword.x = sword.x + 8;
-        }
-        else if(direction == 3)
-        {
-            sword.x = sword.x - 8;
-        }
-        move_weapon(&sword);
+
+        move_weapon(weapon, owner);
     }
 void move_enemy_small(struct Enemy* character, UINT8 x, UINT8 y)
     {
@@ -768,28 +846,33 @@ void character_set_sprite(struct GameCharacter* character, UINT8 anim_state)
         move_player(character, character->x, character->y);
     }
 
-void setup_player(void)
+void setup_character(struct GameCharacter* character, UINT8 x, UINT8 y)
     {
-        girl.x = PLAYER_SPAWN_X;
-        girl.y = PLAYER_SPAWN_Y;
-        girl.width = 16;
-        girl.height = 16;
-        girl.anim = 0;
+        character->x = x;
+        character->y = y;
+        character->width = 16;
+        character->height = 16;
+        character->anim = 0;
 
         set_sprite_tile(0, 0);
         set_sprite_prop(0, 0);
-        girl.spritids[0] = 0;
+        character->spritids[0] = 0;
         set_sprite_tile(1, 1);
         set_sprite_prop(1, 0);
-        girl.spritids[1] = 1;
+        character->spritids[1] = 1;
         set_sprite_tile(2, 2);
         set_sprite_prop(2, 0);
-        girl.spritids[2] = 2;
+        character->spritids[2] = 2;
         set_sprite_tile(3, 3);
         set_sprite_prop(3, 0);
-        girl.spritids[3] = 3;
+        character->spritids[3] = 3;
         
-        move_player(&girl, girl.x, girl.y);
+        move_player(character, character->x, character->y);
+    }
+
+void setup_player(void)
+    {
+        setup_character(&girl, PLAYER_SPAWN_X, PLAYER_SPAWN_Y);
     }
 
 void setupslime(void)
@@ -893,102 +976,105 @@ void main(void)
 
         if(gamestate == 1)
         {
+        struct GameCharacter* active_player = &girl;
+        
         if(player_stats.is_dead == 0 && locktimer == 0 && knockback_timer == 0)
         {
         if(joypad() & J_LEFT)
         {
             direction = 2;
-            move_weapon(&sword);
-            if(girl.x > MIN_GIRL_X)
+            move_weapon(&sword, active_player);
+            if(active_player->x > MIN_GIRL_X)
             {
-                girl.x -= 2;
+                active_player->x -= 2;
                 
             }
-            if(girl.anim != 2 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+            if(active_player->anim != 2 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
             {
-                character_set_sprite(&girl, 2);
+                character_set_sprite(active_player, 2);
             }
-            else if(girl.anim != 3 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+            else if(active_player->anim != 3 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
             {
-                character_set_sprite(&girl, 3);
+                character_set_sprite(active_player, 3);
             }
         }
         if(joypad() & J_RIGHT)
         {
             direction = 3;
-            move_weapon(&sword);
-            if(girl.x < MAX_GIRL_X)
+            move_weapon(&sword, active_player);
+            if(active_player->x < MAX_GIRL_X)
             {
-                girl.x += 2;
+                active_player->x += 2;
                 
             }
             
-            if(girl.anim != 4 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+            if(active_player->anim != 4 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
             {
-                character_set_sprite(&girl, 4);
+                character_set_sprite(active_player, 4);
             }
-            else if(girl.anim != 5 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+            else if(active_player->anim != 5 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
             {
-                character_set_sprite(&girl, 5);
+                character_set_sprite(active_player, 5);
             }
         }
         if(joypad() & J_UP)
         {
             direction = 1;
-            move_weapon(&sword);
-            if(girl.y > MIN_GIRL_Y)
+            move_weapon(&sword, active_player);
+            if(active_player->y > MIN_GIRL_Y)
             {
                 
-                girl.y -= 2;
+                active_player->y -= 2;
             }
-            if(girl.anim != 6)
+            if(active_player->anim != 6)
             {
-                character_set_sprite(&girl, 6);
+                character_set_sprite(active_player, 6);
             }
-            else if(girl.anim != 7)
+            else if(active_player->anim != 7)
             {
-                character_set_sprite(&girl, 7);
+                character_set_sprite(active_player, 7);
             }
         }
         if(joypad() & J_DOWN)
         {
             direction = 0;
-            move_weapon(&sword);
-            if(girl.y < MAX_GIRL_Y)
+            move_weapon(&sword, active_player);
+            if(active_player->y < MAX_GIRL_Y)
             {
                 
-                girl.y += 2;
+                active_player->y += 2;
             }
             
-            if(girl.anim != 0)
+            if(active_player->anim != 0)
             {
-                character_set_sprite(&girl, 0);
+                character_set_sprite(active_player, 0);
             }
-            else if(girl.anim != 1)
+            else if(active_player->anim != 1)
             {
-                character_set_sprite(&girl, 1);
+                character_set_sprite(active_player, 1);
             }
         }        
 
-        if(joypad() & J_A)
+        if(joypad() & J_A && !(prev_pad & J_A))
         {
-            attack();
+            attack(active_player, &sword);
         }
         }
 
         if(player_stats.is_dead == 1)
         {
-            hide_character_sprites(&girl);
+            hide_character_sprites(active_player);
         }
         
-        update_timers();
+        update_timers(active_player, &sword);
 
         
         // Animate all enemies
-        for(UINT8 i = 0; i < 4; i++)
+        for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
         {
             if(enemies[i].death == 0)
             {
+                slime_can_move(&enemies[i], active_player);
                 animate_enemy(&enemies[i], 16, 17);
             }
             else if(enemies[i].death == 1)
@@ -1004,7 +1090,7 @@ void main(void)
         if(animtimer == ANIM_TIMER_MAX)
         {
             animtimer = 0;
-            for(UINT8 i = 0; i < 4; i++)
+            for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
             {
                 enemies[i].anim = (enemies[i].anim == 0) ? 1 : 0;
             }
@@ -1013,9 +1099,9 @@ void main(void)
         // Character collision with all enemies
         if(player_stats.is_dead == 0)
         {
-            for(UINT8 i = 0; i < 4; i++)
+            for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
             {
-                character_enemy_collision(&girl, &enemies[i]);
+                character_enemy_collision(active_player, &enemies[i]);
             }
         }
         }  // end gamestate == 1
@@ -1057,7 +1143,6 @@ void main(void)
 #endif
         character_enemy_collision(&girl, &slime);
         */
-        
         prev_pad = current_pad;
         update_window_stats_ui();
         performantdelay(5);

@@ -46,4 +46,5 @@ struct Enemy {
     UINT8 height;
     UINT8 anim;
     UINT8 death;
+    UINT8 move_timer;
 };
