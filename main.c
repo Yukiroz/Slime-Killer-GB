@@ -41,6 +41,17 @@ typedef int8_t INT8;
 #define HUD_HP_X 0
 #define HUD_DMG_X 4
 #define HUD_RANGE_X 8
+#define PAUSE_ROW 1
+#define PAUSE_TEXT_X 7
+#define ROOM_CLEAR_ROW 1
+#define ROOM_CLEAR_X 5
+
+// TITLE SCREEN CONSTANTS
+#define TITLE_X 4
+#define TITLE_Y 6
+#define START_X 5
+#define START_Y 10
+#define START_FLASH_FRAMES 4
 
 // PLAYER SPAWN
 #define PLAYER_SPAWN_X 80
@@ -61,6 +72,7 @@ typedef int8_t INT8;
 #define ATTACK_LOCK_TIME 10
 #define SPAWN_TIMER_MAX 1000
 #define SLIME_MOVE_INTERVAL 3
+#define ENEMY_START_DELAY_FRAMES 20
 
 // SPAWNING BOUNDARIES
 #define SPAWN_MIN_X 32
@@ -131,6 +143,7 @@ typedef int8_t INT8;
 // Combat constants
 #define KNOCKBACK_FRAMES 6
 #define KNOCKBACK_STEP 2
+#define ENEMY_KNOCKBACK_STEP 8
 
 // Timer constants
 #define INVULN_FRAMES 10
@@ -194,6 +207,10 @@ UINT8 direction = 0; // 0 = down, 1 = up, 2 = left, 3 = right
 UINT8 room = 0;
 UINT8 prev_pad = 0;
 UINT8 spawned_enemies = 0;
+UINT8 title_flash_timer = 0;
+UINT8 title_flash_visible = 1;
+UINT8 enemy_start_delay_timer = 0;
+font_t ui_font;
 //Knockback variables
 UINT8 knockback_timer = 0;
 INT8 knockback_dx = 0;
@@ -227,11 +244,84 @@ void init_character_stats(struct PlayerStats* stats,
                          UINT8 invuln_time);
 void init_player_stats(void);
 UINT8 player_take_damage(UINT8 amount);
+void audio_init(void);
+void sfx_swing(void);
+void sfx_enemy_hit(void);
+void sfx_player_hurt(void);
 void update_timers(struct GameCharacter* player, struct Weapon* weapon);
 void write_window_2digits(UINT8 value, UINT8 x, UINT8 y);
 void update_window_stats_ui(void);
+void show_pause_ui(void);
+void hide_pause_ui(void);
+void show_room_clear_ui(void);
+void hide_room_clear_ui(void);
+void draw_press_start(UINT8 visible);
+void init_title_screen(void);
+void update_title_screen(void);
 void slime_ai(struct GameCharacter* girl, struct Enemy* enemy);
 void slime_can_move(struct Enemy* enemy, struct GameCharacter* target);
+void resolve_enemy_collisions(void);
+
+void draw_press_start(UINT8 visible)
+{
+    const UINT8 press_start_tiles[11] = {
+        TILE_P, TILE_R, TILE_E, TILE_S, TILE_S,
+        0,
+        TILE_S, TILE_T, TILE_A, TILE_R, TILE_T
+    };
+
+    for(UINT8 i = 0; i < 11; i++)
+    {
+        set_bkg_tile_xy(START_X + i, START_Y, visible ? press_start_tiles[i] : 0);
+    }
+}
+
+void init_title_screen(void)
+{
+    font_init();
+    ui_font = font_load(font_min);
+    font_set(ui_font);
+
+    for(UINT8 y = 0; y < 18; y++)
+    {
+        for(UINT8 x = 0; x < 20; x++)
+        {
+            set_bkg_tile_xy(x, y, 0);
+        }
+    }
+
+    set_bkg_tile_xy(TITLE_X + 0, TITLE_Y, TILE_S);
+    set_bkg_tile_xy(TITLE_X + 1, TITLE_Y, TILE_L);
+    set_bkg_tile_xy(TITLE_X + 2, TITLE_Y, TILE_I);
+    set_bkg_tile_xy(TITLE_X + 3, TITLE_Y, TILE_M);
+    set_bkg_tile_xy(TITLE_X + 4, TITLE_Y, TILE_E);
+    set_bkg_tile_xy(TITLE_X + 5, TITLE_Y, 0);
+    set_bkg_tile_xy(TITLE_X + 6, TITLE_Y, TILE_K);
+    set_bkg_tile_xy(TITLE_X + 7, TITLE_Y, TILE_I);
+    set_bkg_tile_xy(TITLE_X + 8, TITLE_Y, TILE_L);
+    set_bkg_tile_xy(TITLE_X + 9, TITLE_Y, TILE_L);
+    set_bkg_tile_xy(TITLE_X + 10, TITLE_Y, TILE_E);
+    set_bkg_tile_xy(TITLE_X + 11, TITLE_Y, TILE_R);
+
+    draw_press_start(1);
+    title_flash_timer = 0;
+    title_flash_visible = 1;
+
+    HIDE_WIN;
+    SHOW_BKG;
+    DISPLAY_ON;
+}
+
+void update_title_screen(void)
+{
+    title_flash_timer++;
+    if(title_flash_timer >= START_FLASH_FRAMES)
+    {
+        title_flash_timer = 0;
+        title_flash_visible = !title_flash_visible;
+        draw_press_start(title_flash_visible);
+    }
+}
 
 void slime_can_move(struct Enemy* enemy, struct GameCharacter* target)
 {
@@ -244,6 +334,66 @@ void slime_can_move(struct Enemy* enemy, struct GameCharacter* target)
         move_enemy_small(enemy, enemy->x, enemy->y);        
     }
     enemy->move_timer++;
+}
+
+void resolve_enemy_collisions(void)
+{
+    for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
+    {
+        if(enemies[i].death == 1)
+        {
+            continue;
+        }
+
+        for(UINT8 j = i + 1; j < ACTIVE_ENEMY_COUNT; j++)
+        {
+            if(enemies[j].death == 1)
+            {
+                continue;
+            }
+
+            if(enemies[i].x < enemies[j].x + enemies[j].width &&
+               enemies[i].x + enemies[i].width > enemies[j].x &&
+               enemies[i].y < enemies[j].y + enemies[j].height &&
+               enemies[i].y + enemies[i].height > enemies[j].y)
+            {
+                INT8 dx = (INT8)enemies[i].x - (INT8)enemies[j].x;
+                INT8 dy = (INT8)enemies[i].y - (INT8)enemies[j].y;
+                UINT8 abs_dx = (dx < 0) ? (UINT8)(-dx) : (UINT8)dx;
+                UINT8 abs_dy = (dy < 0) ? (UINT8)(-dy) : (UINT8)dy;
+
+                if(abs_dx >= abs_dy)
+                {
+                    if(dx >= 0)
+                    {
+                        enemies[i].x++;
+                        enemies[j].x--;
+                    }
+                    else
+                    {
+                        enemies[i].x--;
+                        enemies[j].x++;
+                    }
+                }
+                else
+                {
+                    if(dy >= 0)
+                    {
+                        enemies[i].y++;
+                        enemies[j].y--;
+                    }
+                    else
+                    {
+                        enemies[i].y--;
+                        enemies[j].y++;
+                    }
+                }
+
+                enemy_check_borders(&enemies[i]);
+                enemy_check_borders(&enemies[j]);
+            }
+        }
+    }
 }
 
 
@@ -275,6 +425,46 @@ void update_window_stats_ui(void)
     //write_window_2digits(player_stats.range, HUD_RANGE_X, HUD_ROW);
 }
 
+void show_pause_ui(void)
+{
+    set_win_tile_xy(PAUSE_TEXT_X + 0, PAUSE_ROW, TILE_P);
+    set_win_tile_xy(PAUSE_TEXT_X + 1, PAUSE_ROW, TILE_A);
+    set_win_tile_xy(PAUSE_TEXT_X + 2, PAUSE_ROW, TILE_U);
+    set_win_tile_xy(PAUSE_TEXT_X + 3, PAUSE_ROW, TILE_S);
+    set_win_tile_xy(PAUSE_TEXT_X + 4, PAUSE_ROW, TILE_E);
+}
+
+void hide_pause_ui(void)
+{
+    set_win_tile_xy(PAUSE_TEXT_X + 0, PAUSE_ROW, 0);
+    set_win_tile_xy(PAUSE_TEXT_X + 1, PAUSE_ROW, 0);
+    set_win_tile_xy(PAUSE_TEXT_X + 2, PAUSE_ROW, 0);
+    set_win_tile_xy(PAUSE_TEXT_X + 3, PAUSE_ROW, 0);
+    set_win_tile_xy(PAUSE_TEXT_X + 4, PAUSE_ROW, 0);
+}
+
+void show_room_clear_ui(void)
+{
+    set_win_tile_xy(ROOM_CLEAR_X + 0, ROOM_CLEAR_ROW, TILE_R);
+    set_win_tile_xy(ROOM_CLEAR_X + 1, ROOM_CLEAR_ROW, TILE_O);
+    set_win_tile_xy(ROOM_CLEAR_X + 2, ROOM_CLEAR_ROW, TILE_O);
+    set_win_tile_xy(ROOM_CLEAR_X + 3, ROOM_CLEAR_ROW, TILE_M);
+    set_win_tile_xy(ROOM_CLEAR_X + 4, ROOM_CLEAR_ROW, 0);
+    set_win_tile_xy(ROOM_CLEAR_X + 5, ROOM_CLEAR_ROW, TILE_C);
+    set_win_tile_xy(ROOM_CLEAR_X + 6, ROOM_CLEAR_ROW, TILE_L);
+    set_win_tile_xy(ROOM_CLEAR_X + 7, ROOM_CLEAR_ROW, TILE_E);
+    set_win_tile_xy(ROOM_CLEAR_X + 8, ROOM_CLEAR_ROW, TILE_A);
+    set_win_tile_xy(ROOM_CLEAR_X + 9, ROOM_CLEAR_ROW, TILE_R);
+}
+
+void hide_room_clear_ui(void)
+{
+    for(UINT8 i = 0; i < 10; i++)
+    {
+        set_win_tile_xy(ROOM_CLEAR_X + i, ROOM_CLEAR_ROW, 0);
+    }
+}
+
 void write_window_2digits(UINT8 value, UINT8 x, UINT8 y)
 {
     // Write a two-digit number to the window at the specified position
@@ -298,11 +488,44 @@ UINT8 player_take_damage(UINT8 amount)
         {
             player_stats.current_health -= amount;
         }
+        sfx_player_hurt();
         player_stats.invuln_timer = INVULN_FRAMES;
         return 1;
     }
     return 0;
 }            
+void audio_init(void)
+{
+    NR52_REG = 0x80;
+    NR50_REG = 0x77;
+    NR51_REG = 0xFF;
+}
+
+void sfx_swing(void)
+{
+    NR41_REG = 0x00;
+    NR42_REG = 0xF1;
+    NR43_REG = 0x35;
+    NR44_REG = 0x80;
+}
+
+void sfx_enemy_hit(void)
+{
+    NR41_REG = 0x00;
+    NR42_REG = 0xC2;
+    NR43_REG = 0x20;
+    NR44_REG = 0x80;
+}
+
+void sfx_player_hurt(void)
+{
+    NR10_REG = 0x16;
+    NR11_REG = 0x80;
+    NR12_REG = 0xF2;
+    NR13_REG = 0x40;
+    NR14_REG = 0x87;
+}
+
 void init_player_stats(void)
 {
     init_character_stats(&player_stats,
@@ -421,6 +644,8 @@ void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y)
     enemy->height = 8;
     enemy->anim = 0;
     enemy->death = 0;
+    enemy->max_health = 2;
+    enemy->current_health = 2;
     
     set_sprite_tile(oam_slot, 16);
     set_sprite_prop(oam_slot, ENEMY_PALETTE);
@@ -436,6 +661,7 @@ void room_0(void)
     setup_enemy(&enemies[1], 23, 26, 70);   // Left bottom
     setup_enemy(&enemies[2], 24, 134, 50);  // Right top
     setup_enemy(&enemies[3], 25, 134, 70);  // Right bottom
+    enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
 }
 
 // Function Prototypes
@@ -548,10 +774,39 @@ void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 en
         {
             {
                 hit_this_attack[enemy_index] = 1;
-                enemy->death = 1;
-                enemy->x = 0;
-                enemy->y = 0;
-                score = score ++;
+                if(enemy->current_health > 0)
+                {
+                    enemy->current_health--;
+
+                    if(direction == 2) // left
+                    {
+                        enemy->x -= ENEMY_KNOCKBACK_STEP;
+                    }
+                    else if(direction == 3) // right
+                    {
+                        enemy->x += ENEMY_KNOCKBACK_STEP;
+                    }
+                    else if(direction == 1) // up
+                    {
+                        enemy->y -= ENEMY_KNOCKBACK_STEP;
+                    }
+                    else // down
+                    {
+                        enemy->y += ENEMY_KNOCKBACK_STEP;
+                    }
+
+                    enemy_check_borders(enemy);
+                }
+
+                sfx_enemy_hit();
+
+                if(enemy->current_health == 0)
+                {
+                    enemy->death = 1;
+                    enemy->x = 0;
+                    enemy->y = 0;
+                    score = score ++;
+                }
             }
         }
     }
@@ -641,6 +896,8 @@ void attack(struct GameCharacter* owner, struct Weapon* weapon)
         {
             hit_this_attack[i] = 0;
         }
+
+        sfx_swing();
         
         move_weapon(weapon, owner);
 
@@ -915,6 +1172,8 @@ void setupsword(void)
 
 void main(void)
 {   
+    init_title_screen();
+
     while(1)
     {
         UINT8 current_pad = joypad();
@@ -925,11 +1184,8 @@ void main(void)
             {
                 gamestate = 1;
                 initrand(DIV_REG);
-                font_t min_font;
-
-                font_init();
-                min_font = font_load(font_min);
-                font_set(min_font);
+                font_set(ui_font);
+                audio_init();
 
                 set_bkg_data(37, 8, backgroundtiles);
                 set_bkg_tiles(0, 0, 20, 16, backgroundmap);
@@ -963,15 +1219,18 @@ void main(void)
             else if(gamestate == 1)
             {
                 gamestate = 2;
-                HIDE_BKG;
-                HIDE_SPRITES;
+                show_pause_ui();
             }
             else if(gamestate == 2)
             {
                 gamestate = 1;
-                SHOW_SPRITES;
-                SHOW_BKG;
+                hide_pause_ui();
             }
+        }
+
+        if(gamestate == 0)
+        {
+            update_title_screen();
         }
 
         if(gamestate == 1)
@@ -1068,13 +1327,24 @@ void main(void)
         
         update_timers(active_player, &sword);
 
-        
+        UINT8 can_enemies_move = 1;
+        if(enemy_start_delay_timer > 0)
+        {
+            enemy_start_delay_timer--;
+            can_enemies_move = 0;
+        }
+
         // Animate all enemies
+        UINT8 all_enemies_dead = 1;
         for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
         {
             if(enemies[i].death == 0)
             {
-                slime_can_move(&enemies[i], active_player);
+                all_enemies_dead = 0;
+                if(can_enemies_move)
+                {
+                    slime_can_move(&enemies[i], active_player);
+                }
                 animate_enemy(&enemies[i], 16, 17);
             }
             else if(enemies[i].death == 1)
@@ -1083,6 +1353,25 @@ void main(void)
                 enemies[i].y = 0;
                 move_enemy_small(&enemies[i], 0, 0);
             }
+        }
+
+        resolve_enemy_collisions();
+
+        for(UINT8 i = 0; i < ACTIVE_ENEMY_COUNT; i++)
+        {
+            if(enemies[i].death == 0)
+            {
+                move_enemy_small(&enemies[i], enemies[i].x, enemies[i].y);
+            }
+        }
+
+        if(all_enemies_dead)
+        {
+            show_room_clear_ui();
+        }
+        else
+        {
+            hide_room_clear_ui();
         }
         
         // Animation timer for all enemies

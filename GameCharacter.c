@@ -46,5 +46,7 @@ struct Enemy {
     UINT8 height;
     UINT8 anim;
     UINT8 death;
+    UINT8 max_health;
+    UINT8 current_health;
     UINT8 move_timer;
 };
