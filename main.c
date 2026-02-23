@@ -51,6 +51,7 @@ typedef int8_t INT8;
 #define READY_X 7
 #define REWARD_ROW 1
 #define REWARD_X 7
+#define STAGE_X 15
 
 // TITLE SCREEN CONSTANTS
 #define TITLE_X 4
@@ -72,9 +73,10 @@ typedef int8_t INT8;
 #define BOSS_BASE_HP 100
 
 // ENTITY LIMITS
-#define MAX_ENEMIES 8
+#define MAX_ENEMIES 10
 #define ACTIVE_ENEMY_COUNT 6
-#define TOTAL_ROOMS 3
+// update this when adding new room functions; originally 3 for 0-2
+#define TOTAL_ROOMS 6
 
 // TIMING CONSTANTS
 #define ANIM_TIMER_MAX 20
@@ -133,7 +135,7 @@ typedef int8_t INT8;
 #define BOSS_ATTACK_FRAME_DURATION 8  // Frames per animation frame
 
 // SLIME JUMP BEHAVIOR
-#define SLIME_JUMP_COOLDOWN 30  // Frames between jumps
+#define SLIME_JUMP_COOLDOWN 20  // Frames between jumps
 #define SLIME_JUMP_DISTANCE 16  // Maximum jump distance in pixels
 
 // Window/font tile IDs (A-Z)
@@ -225,6 +227,10 @@ struct Weapon sword;
 struct Enemy slime;  // Legacy enemy (disabled, kept for reference)
 struct PlayerStats player_stats;
 
+// stage tracking
+UINT8 stage = 1;                // displayed stage number (1-based)
+UINT8 enemy_hp_multiplier = 1;  // doubles each room clear
+
 // ============================================
 // ARRAYS
 // ============================================
@@ -288,6 +294,9 @@ void move_sword_sprites_from_position(struct Weapon* weapon);
 void room_0(void);
 void room_1(void);
 void room_2(void);
+void room_3(void);
+void room_4(void);
+void room_5(void);
 void load_room(UINT8 room_id);
 void init_character_stats(struct PlayerStats* stats,
                          UINT8 max_health,
@@ -389,8 +398,17 @@ void update_title_screen(void)
 
 void slime_can_move(struct Enemy* enemy, struct GameCharacter* target)
 {
-    // Use faster movement interval for rooms 0 and 1, normal for room 2 (boss room)
-    UINT8 move_interval = (room < 2) ? SLIME_MOVE_INTERVAL_FAST : SLIME_MOVE_INTERVAL;
+    // Fast interval in early rooms and the two intermediate rooms (3 & 4)
+    // normal (slower) interval in boss room and later
+    UINT8 move_interval;
+    if(room < 2 || room == 3 || room == 4 || room == 5)
+    {
+        move_interval = SLIME_MOVE_INTERVAL_FAST;
+    }
+    else
+    {
+        move_interval = SLIME_MOVE_INTERVAL;
+    }
     
     if(enemy->move_timer == move_interval)
     {
@@ -772,6 +790,12 @@ void update_window_stats_ui(void)
     set_win_tile_xy(HUD_RANGE_X, HUD_ROW, TILE_S);
     set_win_tile_xy(HUD_RANGE_X + 1, HUD_ROW, TILE_P);
     write_window_2digits(player_stats.speed, HUD_RANGE_X + 2, HUD_ROW);
+
+    // stage display
+    set_win_tile_xy(STAGE_X, HUD_ROW, TILE_S);
+    set_win_tile_xy(STAGE_X + 1, HUD_ROW, TILE_T);
+    set_win_tile_xy(STAGE_X + 2, HUD_ROW, TILE_G);
+    write_window_2digits(stage, STAGE_X + 3, HUD_ROW);
 }
 
 void show_pause_ui(void)
@@ -983,19 +1007,21 @@ void sfx_swing(void)
 
 void sfx_enemy_hit(void)
 {
-    NR41_REG = 0x00;
-    NR42_REG = 0xC2;
-    NR43_REG = 0x20;
-    NR44_REG = 0x80;
-}
-
-void sfx_player_hurt(void)
-{
+    // use square-channel pattern previously in player_hurt
     NR10_REG = 0x16;
     NR11_REG = 0x80;
     NR12_REG = 0xF2;
     NR13_REG = 0x40;
     NR14_REG = 0x87;
+}
+
+void sfx_player_hurt(void)
+{
+    // use noise-channel pattern previously in enemy_hit
+    NR41_REG = 0x00;
+    NR42_REG = 0xC2;
+    NR43_REG = 0x20;
+    NR44_REG = 0x80;
 }
 
 void init_player_stats(void)
@@ -1222,7 +1248,8 @@ void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y, UINT8 ty
     {
         enemy->width = 8;
         enemy->height = 8;
-        enemy->max_health = SLIME_BASE_HP;
+        // scale health based on current stage
+        enemy->max_health = SLIME_BASE_HP * enemy_hp_multiplier;
         enemy->current_health = enemy->max_health;
         enemy->spawn_timer = 0;  // Slimes don't spawn others
         enemy->attack_timer = 0;
@@ -1245,7 +1272,8 @@ void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y, UINT8 ty
     {
         enemy->width = 16;
         enemy->height = 16;
-        enemy->max_health = BOSS_BASE_HP;
+        // scale boss HP as well
+        enemy->max_health = BOSS_BASE_HP * enemy_hp_multiplier;
         enemy->current_health = enemy->max_health;
         
         // Initialize spawn timer with random value
@@ -1322,6 +1350,64 @@ void room_1(void)
     transition_cooldown_timer = 0;
 }
 
+void room_3(void)
+{
+    current_enemy_count = 8;
+    setup_enemy(&enemies[0], 22, 26, 50, ENEMY_TYPE_SLIME);   // Left top
+    setup_enemy(&enemies[1], 23, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
+    setup_enemy(&enemies[2], 24, 26, 90, ENEMY_TYPE_SLIME);  // Right top
+    setup_enemy(&enemies[3], 25, 134, 50, ENEMY_TYPE_SLIME);  // Right bottom
+    setup_enemy(&enemies[4], 26, 134, 70, ENEMY_TYPE_SLIME);  
+    setup_enemy(&enemies[5], 27, 134, 90, ENEMY_TYPE_SLIME);
+    setup_enemy(&enemies[6], 28, 26, 110, ENEMY_TYPE_SLIME);  
+    setup_enemy(&enemies[7], 29, 134, 110, ENEMY_TYPE_SLIME);
+    
+    // Mark all other enemy slots as dead
+    for(UINT8 i = 8; i < MAX_ENEMIES; i++)
+    {
+        enemies[i].death = 1;
+        hide_enemy_sprites(&enemies[i]);
+    }
+    
+    enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
+    room_cleared = 0;
+    reward_active = 0;
+    reward_claimed = 0;
+    can_transition = 0;
+    room_clear_timer = 0;
+    transition_cooldown_timer = 0;
+}
+
+void room_4(void)
+{
+    current_enemy_count = 10;
+    setup_enemy(&enemies[0], 22, 26, 50, ENEMY_TYPE_SLIME);   // Left top
+    setup_enemy(&enemies[1], 23, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
+    setup_enemy(&enemies[2], 24, 26, 90, ENEMY_TYPE_SLIME);  // Right top
+    setup_enemy(&enemies[3], 25, 134, 50, ENEMY_TYPE_SLIME);  // Right bottom
+    setup_enemy(&enemies[4], 26, 134, 70, ENEMY_TYPE_SLIME);  
+    setup_enemy(&enemies[5], 27, 134, 90, ENEMY_TYPE_SLIME);
+    setup_enemy(&enemies[6], 28, 26, 110, ENEMY_TYPE_SLIME);  
+    setup_enemy(&enemies[7], 29, 134, 110, ENEMY_TYPE_SLIME);
+    setup_enemy(&enemies[8], 30, 46, 110, ENEMY_TYPE_SLIME);  
+    setup_enemy(&enemies[9], 31, 114, 110, ENEMY_TYPE_SLIME);
+    
+    // Mark all other enemy slots as dead
+    for(UINT8 i = 10; i <= MAX_ENEMIES; i++)
+    {
+        enemies[i].death = 1;
+        hide_enemy_sprites(&enemies[i]);
+    }
+    
+    enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
+    room_cleared = 0;
+    reward_active = 0;
+    reward_claimed = 0;
+    can_transition = 0;
+    room_clear_timer = 0;
+    transition_cooldown_timer = 0;
+}
+
 //Room 2 Function - Boss Room
 void room_2(void)
 {
@@ -1345,6 +1431,34 @@ void room_2(void)
     transition_cooldown_timer = 0;
 }
 
+void room_5(void)
+{
+    current_enemy_count = 5;  // Boss and adds
+    // Boss uses 4 OAM slots (22-25) for 16x16 sprite
+    setup_enemy(&enemies[0], 22, 80, 60, ENEMY_TYPE_BOSS);
+    setup_enemy(&enemies[1], 26, 26, 50, ENEMY_TYPE_SLIME);   // Left top
+    setup_enemy(&enemies[2], 27, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
+    setup_enemy(&enemies[3], 28, 26, 90, ENEMY_TYPE_SLIME);  // Right top
+    setup_enemy(&enemies[4], 29, 134, 50, ENEMY_TYPE_SLIME);  // Right bottom
+
+    current_enemy_count = 5;
+    // Mark all other enemies as dead and hide their sprites
+    for(UINT8 i = 5; i < MAX_ENEMIES; i++)
+    {
+        enemies[i].death = 1;
+        hide_enemy_sprites(&enemies[i]);
+    }
+    
+    enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
+    room_cleared = 0;
+    reward_active = 0;
+    reward_claimed = 0;
+    can_transition = 0;
+    room_clear_timer = 0;
+    transition_cooldown_timer = 0;
+}
+
+
 void load_room(UINT8 room_id)
 {
     if(room_id == 0)
@@ -1359,6 +1473,18 @@ void load_room(UINT8 room_id)
     {
         room_2();
     }
+    else if(room_id == 3)
+    {
+        room_3();
+    }
+    else if(room_id == 4)
+    {
+        room_4();
+    } 
+    else if(room_id == 5)
+    {
+        room_5();
+    }       
     else
     {
         room_0();
@@ -1556,7 +1682,7 @@ void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 en
                         spawn_boss_death_slimes(enemy);
                     }
                     
-                    score = score ++;
+                    score ++;
                 }
             }
         }
@@ -1955,6 +2081,9 @@ void main(void)
                 set_sprite_data(22, 9, Boss);   // Boss tiles (22-30) - includes attack animation frames
                 setup_player();
                 init_player_stats();
+                // reset progression
+                stage = 1;
+                enemy_hp_multiplier = 1;
                 update_window_stats_ui();
                 setupsword();
                 load_room(room);  // Initialize room after sprite data is loaded
@@ -1989,6 +2118,9 @@ void main(void)
 
                 setup_player();
                 init_player_stats();
+                // reset progression on death restart
+                stage = 1;
+                enemy_hp_multiplier = 1;
                 setupsword();
                 load_room(room);
 
@@ -2323,7 +2455,16 @@ void main(void)
             else if(((current_pad & J_A) && !(prev_pad & J_A)) ||
                     ((current_pad & J_START) && !(prev_pad & J_START)))
             {
-                room = (room + 1) % TOTAL_ROOMS;
+                // calculate next room and wrap
+                UINT8 next_room = (room + 1) % TOTAL_ROOMS;
+                if(next_room == 0)
+                {
+                    // completed a full cycle: advance stage and double HP
+                    stage++;
+                    enemy_hp_multiplier <<= 1;  // double
+                    update_window_stats_ui();
+                }
+                room = next_room;
                 load_room(room);
             }
         }
