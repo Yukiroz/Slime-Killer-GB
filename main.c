@@ -564,7 +564,7 @@ void slime_ai(struct GameCharacter* character, struct Enemy* enemy)
     else
     {
         // Jump cooldown complete - calculate new jump target toward player
-        enemy->jump_timer = SLIME_JUMP_COOLDOWN;
+        enemy->jump_timer = SLIME_JUMP_COOLDOWN  + (rand() % 5); // Add randomness (0-4 frames);
         
         // Calculate direction to player
         INT8 dx = (INT8)character->x - (INT8)enemy->x;
@@ -660,10 +660,10 @@ void spawn_slime_near_boss(struct Enemy* boss)
             // Found empty slot - spawn slime near boss (with some offset)
             INT8 offset_x = (rand() % 32) - 16;  // Random offset -16 to +16
             INT8 offset_y = (rand() % 32) - 16;
-            
+
             // Calculate spawn position with safe clamping
             UINT8 spawn_x, spawn_y;
-            
+
             // Handle X coordinate
             if(offset_x < 0 && boss->x < (UINT8)(-offset_x))
             {
@@ -673,7 +673,7 @@ void spawn_slime_near_boss(struct Enemy* boss)
             {
                 spawn_x = boss->x + offset_x;
             }
-            
+
             // Handle Y coordinate
             if(offset_y < 0 && boss->y < (UINT8)(-offset_y))
             {
@@ -683,17 +683,19 @@ void spawn_slime_near_boss(struct Enemy* boss)
             {
                 spawn_y = boss->y + offset_y;
             }
-            
+
             // Clamp to valid spawn range
             if(spawn_x < SPAWN_MIN_X) spawn_x = SPAWN_MIN_X;
             if(spawn_x > SPAWN_MAX_X) spawn_x = SPAWN_MAX_X;
             if(spawn_y < SPAWN_MIN_Y) spawn_y = SPAWN_MIN_Y;
             if(spawn_y > SPAWN_MAX_Y) spawn_y = SPAWN_MAX_Y;
-            
-            // Use first available OAM slot (26-37 range for spawned slimes)
+
+            // Validate OAM slot range
             UINT8 oam_slot = 26 + i;
-            //if(oam_slot > 37) oam_slot = 26;  // Wrap around if needed
-            
+            if(oam_slot > 37) {
+                continue; // Skip invalid OAM slots
+            }
+
             setup_enemy(&enemies[i], oam_slot, spawn_x, spawn_y, ENEMY_TYPE_SLIME);
             current_enemy_count++;
             break;  // Only spawn one slime per call
@@ -1254,7 +1256,7 @@ void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y, UINT8 ty
         enemy->spawn_timer = 0;  // Slimes don't spawn others
         enemy->attack_timer = 0;
         enemy->attack_anim_frame = 0;
-        enemy->jump_timer = SLIME_JUMP_COOLDOWN;  // Initialize jump timer
+        enemy->jump_timer = SLIME_JUMP_COOLDOWN   + (rand() % 5);  // Initialize jump timer
         enemy->jump_target_x = x;
         enemy->jump_target_y = y;
         
@@ -1436,10 +1438,10 @@ void room_5(void)
     current_enemy_count = 5;  // Boss and adds
     // Boss uses 4 OAM slots (22-25) for 16x16 sprite
     setup_enemy(&enemies[0], 22, 80, 60, ENEMY_TYPE_BOSS);
-    setup_enemy(&enemies[1], 26, 26, 50, ENEMY_TYPE_SLIME);   // Left top
-    setup_enemy(&enemies[2], 27, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
+    setup_enemy(&enemies[1], 26, 26, 70, ENEMY_TYPE_SLIME);   // Left top
+    setup_enemy(&enemies[2], 27, 134, 70, ENEMY_TYPE_SLIME);   // Left bottom
     setup_enemy(&enemies[3], 28, 26, 90, ENEMY_TYPE_SLIME);  // Right top
-    setup_enemy(&enemies[4], 29, 134, 50, ENEMY_TYPE_SLIME);  // Right bottom
+    setup_enemy(&enemies[4], 29, 134, 90, ENEMY_TYPE_SLIME);  // Right bottom
 
     current_enemy_count = 5;
     // Mark all other enemies as dead and hide their sprites

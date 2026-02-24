@@ -1447,12 +1447,19 @@ _slime_ai::
 	ld	(hl), #0x00
 	jp	00133$
 00128$:
-;main.c:567: enemy->jump_timer = SLIME_JUMP_COOLDOWN;
+;main.c:567: enemy->jump_timer = SLIME_JUMP_COOLDOWN  + (rand() % 5); // Add randomness (0-4 frames);
+	call	_rand
+	ld	a, e
+	ld	e, #0x05
+	call	__moduchar
+	ld	a, c
+	add	a, #0x14
 	ldhl	sp,	#4
-	ld	a, (hl+)
+	ld	e, (hl)
+	inc	hl
 	ld	h, (hl)
-	ld	l, a
-	ld	(hl), #0x14
+	ld	l, e
+	ld	(hl), a
 ;main.c:570: INT8 dx = (INT8)character->x - (INT8)enemy->x;
 	ldhl	sp,#12
 	ld	a, (hl+)
@@ -1811,22 +1818,50 @@ _count_alive_slimes::
 ; Function spawn_slime_near_boss
 ; ---------------------------------
 _spawn_slime_near_boss::
-	add	sp, #-9
-	ldhl	sp,	#7
-	ld	a, e
-	ld	(hl+), a
+	add	sp, #-10
+	ld	c, e
+	ld	b, d
 ;main.c:656: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
-	ld	a, d
-	ld	(hl-), a
-	dec	hl
-	xor	a, a
-	ld	(hl-), a
+	ldhl	sp,	#0
+	ld	(hl), #0x00
+	ld	hl, #0x0004
+	add	hl, bc
+	push	hl
+	ld	a, l
+	ldhl	sp,	#3
 	ld	(hl), a
-00121$:
-	ldhl	sp,	#5
+	pop	hl
+	ld	a, h
+	ldhl	sp,	#2
+	ld	(hl-), a
+	ld	a, (hl+)
+	inc	hl
+	ld	(hl-), a
+	ld	a, (hl+)
+	inc	hl
+	ld	(hl), a
+	ld	hl, #0x0005
+	add	hl, bc
+	push	hl
+	ld	a, l
+	ldhl	sp,	#7
+	ld	(hl), a
+	pop	hl
+	ld	a, h
+	ldhl	sp,	#6
+	ld	(hl-), a
+	ld	a, (hl+)
+	inc	hl
+	ld	(hl-), a
+	ld	a, (hl+)
+	inc	hl
+	ld	(hl+), a
+	ld	(hl), #0x00
+00124$:
+	ldhl	sp,	#9
 	ld	a, (hl)
 	sub	a, #0x0a
-	jp	NC, 00123$
+	jp	NC, 00125$
 ;main.c:658: if(enemies[i].death == 1)
 	ld	c, (hl)
 	ld	b, #0x00
@@ -1843,84 +1878,80 @@ _spawn_slime_near_boss::
 	add	hl, bc
 	ld	a, (hl)
 	dec	a
-	jp	NZ, 00122$
+	jp	NZ, 00121$
 ;main.c:661: INT8 offset_x = (rand() % 32) - 16;  // Random offset -16 to +16
 	call	_rand
 	ld	a, e
 	and	a, #0x1f
 	add	a, #0xf0
-	ld	b, a
+	ld	c, a
 ;main.c:662: INT8 offset_y = (rand() % 32) - 16;
 	call	_rand
 	ld	a, e
 	and	a, #0x1f
 	add	a, #0xf0
-	ld	c, a
+	ld	b, a
 ;main.c:668: if(offset_x < 0 && boss->x < (UINT8)(-offset_x))
-	ldhl	sp,#7
+	bit	7, c
+	jr	Z, 00102$
+	ldhl	sp,#1
 	ld	a, (hl+)
 	ld	e, a
 	ld	d, (hl)
-	ld	hl, #0x0004
-	add	hl, de
-	ld	e, l
-	ld	d, h
 	ld	a, (de)
 	ld	l, a
-	bit	7, b
-	jr	Z, 00102$
 	xor	a, a
-	sub	a, b
+	sub	a, c
 	ld	e, a
 	ld	a, l
 	sub	a, e
 	jr	NC, 00102$
 ;main.c:670: spawn_x = SPAWN_MIN_X;  // Would underflow
-	ldhl	sp,	#2
+	ldhl	sp,	#4
 	ld	(hl), #0x20
 	jr	00103$
 00102$:
 ;main.c:674: spawn_x = boss->x + offset_x;
-	ld	a, l
-	add	a, b
-	ldhl	sp,	#2
-	ld	(hl), a
-00103$:
-;main.c:678: if(offset_y < 0 && boss->y < (UINT8)(-offset_y))
-	ldhl	sp,#7
+	ldhl	sp,#3
 	ld	a, (hl+)
 	ld	e, a
 	ld	d, (hl)
-	ld	hl, #0x0005
-	add	hl, de
-	ld	e, l
-	ld	d, h
 	ld	a, (de)
-	ldhl	sp,	#5
+	add	a, c
 	ld	(hl), a
-	bit	7, c
+00103$:
+;main.c:678: if(offset_y < 0 && boss->y < (UINT8)(-offset_y))
+	bit	7, b
 	jr	Z, 00106$
+	ldhl	sp,#5
+	ld	a, (hl+)
+	ld	e, a
+	ld	d, (hl)
+	ld	a, (de)
+	ld	c, a
 	xor	a, a
-	sub	a, c
-	ld	b, a
-	ld	a, (hl)
 	sub	a, b
+	ld	e, a
+	ld	a, c
+	sub	a, e
 	jr	NC, 00106$
 ;main.c:680: spawn_y = SPAWN_MIN_Y;  // Would underflow
-	dec	hl
-	dec	hl
+	inc	hl
+	inc	hl
 	ld	(hl), #0x2c
 	jr	00107$
 00106$:
 ;main.c:684: spawn_y = boss->y + offset_y;
-	ldhl	sp,	#5
-	ld	a, (hl-)
-	dec	hl
-	add	a, c
+	ldhl	sp,#7
+	ld	a, (hl+)
+	ld	e, a
+	ld	d, (hl)
+	ld	a, (de)
+	add	a, b
 	ld	(hl), a
 00107$:
 ;main.c:688: if(spawn_x < SPAWN_MIN_X) spawn_x = SPAWN_MIN_X;
-	ldhl	sp,	#2
+	ldhl	sp,	#4
 	ld	a, (hl)
 	sub	a, #0x20
 	jr	NC, 00110$
@@ -1928,13 +1959,13 @@ _spawn_slime_near_boss::
 00110$:
 ;main.c:689: if(spawn_x > SPAWN_MAX_X) spawn_x = SPAWN_MAX_X;
 	ld	a, #0x80
-	ldhl	sp,	#2
+	ldhl	sp,	#4
 	sub	a, (hl)
 	jr	NC, 00112$
 	ld	(hl), #0x80
 00112$:
 ;main.c:690: if(spawn_y < SPAWN_MIN_Y) spawn_y = SPAWN_MIN_Y;
-	ldhl	sp,	#3
+	ldhl	sp,	#8
 	ld	a, (hl)
 	sub	a, #0x2c
 	jr	NC, 00114$
@@ -1942,19 +1973,18 @@ _spawn_slime_near_boss::
 00114$:
 ;main.c:691: if(spawn_y > SPAWN_MAX_Y) spawn_y = SPAWN_MAX_Y;
 	ld	a, #0x78
-	ldhl	sp,	#3
+	ldhl	sp,	#8
 	sub	a, (hl)
 	jr	NC, 00116$
 	ld	(hl), #0x78
 00116$:
 ;main.c:694: UINT8 oam_slot = 26 + i;
-	ldhl	sp,	#6
-	ld	a, (hl-)
-	dec	hl
+	ldhl	sp,	#9
+	ld	a, (hl)
 	add	a, #0x1a
-;main.c:697: setup_enemy(&enemies[i], oam_slot, spawn_x, spawn_y, ENEMY_TYPE_SLIME);
-	ld	(hl+), a
-	inc	hl
+	ld	(hl), a
+;main.c:699: setup_enemy(&enemies[i], oam_slot, spawn_x, spawn_y, ENEMY_TYPE_SLIME);
+	ldhl	sp,	#0
 	ld	c, (hl)
 	ld	b, #0x00
 	ld	l, c
@@ -1964,53 +1994,69 @@ _spawn_slime_near_boss::
 	add	hl, bc
 	add	hl, hl
 	add	hl, hl
-	inc	sp
-	inc	sp
-	ld	e, l
-	ld	d, h
-	push	de
+	push	hl
+	ld	a, l
+	ldhl	sp,	#8
+	ld	(hl), a
+	pop	hl
+	ld	a, h
+	ldhl	sp,	#7
+	ld	(hl-), a
+	ld	a, (hl+)
+	ld	e, a
+	ld	d, (hl)
 	ld	hl, #_enemies
 	add	hl, de
 	push	hl
 	ld	a, l
-	ldhl	sp,	#7
+	ldhl	sp,	#4
 	ld	(hl), a
 	pop	hl
 	ld	a, h
+	ldhl	sp,	#3
+	ld	(hl-), a
+	ld	a, (hl)
 	ldhl	sp,	#6
 	ld	(hl), a
+	ldhl	sp,	#3
+	ld	a, (hl)
+	ldhl	sp,	#7
+	ld	(hl+), a
 	xor	a, a
 	push	af
 	inc	sp
-	ldhl	sp,	#4
-	ld	a, (hl-)
-	ld	d, a
-	ld	a, (hl+)
-	inc	hl
-	ld	e, a
-	push	de
-	ld	a, (hl+)
+	ld	a, (hl)
+	push	af
+	inc	sp
+	ldhl	sp,	#6
+	ld	a, (hl)
+	push	af
+	inc	sp
+	ldhl	sp,	#12
+	ld	a, (hl)
+	ldhl	sp,	#9
 	ld	e, (hl)
 	inc	hl
 	ld	d, (hl)
 	call	_setup_enemy
-;main.c:698: current_enemy_count++;
+;main.c:700: current_enemy_count++;
 	ld	hl, #_current_enemy_count
 	inc	(hl)
-;main.c:699: break;  // Only spawn one slime per call
-	jr	00123$
-00122$:
+;main.c:701: break;  // Only spawn one slime per call
+	jr	00125$
+00121$:
 ;main.c:656: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
-	ldhl	sp,	#5
+	ldhl	sp,	#9
 	inc	(hl)
-	ld	a, (hl+)
+	ld	a, (hl)
+	ldhl	sp,	#0
 	ld	(hl), a
-	jp	00121$
-00123$:
-;main.c:702: }
-	add	sp, #9
+	jp	00124$
+00125$:
+;main.c:704: }
+	add	sp, #10
 	ret
-;main.c:704: void spawn_boss_death_slimes(struct Enemy* boss)
+;main.c:706: void spawn_boss_death_slimes(struct Enemy* boss)
 ;	---------------------------------
 ; Function spawn_boss_death_slimes
 ; ---------------------------------
@@ -2020,7 +2066,7 @@ _spawn_boss_death_slimes::
 	ld	(hl), e
 	inc	hl
 	ld	(hl), d
-;main.c:707: const INT8 offsets[4][2] = {
+;main.c:709: const INT8 offsets[4][2] = {
 	ldhl	sp,	#0
 	ld	(hl), #0xf4
 	inc	hl
@@ -2037,10 +2083,10 @@ _spawn_boss_death_slimes::
 	ld	(hl), #0x0c
 	inc	hl
 	ld	(hl), #0x0c
-;main.c:715: UINT8 boss_index = MAX_ENEMIES;
+;main.c:717: UINT8 boss_index = MAX_ENEMIES;
 	inc	hl
 	ld	(hl), #0x0a
-;main.c:716: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
+;main.c:718: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
 	ldhl	sp,	#24
 	xor	a, a
 	ld	(hl+), a
@@ -2050,7 +2096,7 @@ _spawn_boss_death_slimes::
 	ld	a, (hl)
 	sub	a, #0x0a
 	jr	NC, 00151$
-;main.c:718: if(&enemies[i] == boss)
+;main.c:720: if(&enemies[i] == boss)
 	ld	c, (hl)
 	ld	b, #0x00
 	ld	l, c
@@ -2092,21 +2138,21 @@ _spawn_boss_death_slimes::
 	ld	a, (hl)
 	sub	a, b
 	jr	NZ, 00130$
-;main.c:720: boss_index = i;
+;main.c:722: boss_index = i;
 	ldhl	sp,	#24
 	ld	a, (hl)
 	ldhl	sp,	#8
 	ld	(hl), a
-;main.c:721: break;
+;main.c:723: break;
 	jr	00151$
 00130$:
-;main.c:716: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
+;main.c:718: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
 	ldhl	sp,	#25
 	inc	(hl)
 	ld	a, (hl-)
 	ld	(hl), a
 	jr	00129$
-;main.c:725: for(UINT8 i = 0; i < MAX_ENEMIES && spawned < BOSS_DEATH_SLIMES; i++)
+;main.c:727: for(UINT8 i = 0; i < MAX_ENEMIES && spawned < BOSS_DEATH_SLIMES; i++)
 00151$:
 	ldhl	sp,#22
 	ld	a, (hl+)
@@ -2161,13 +2207,13 @@ _spawn_boss_death_slimes::
 	ld	a, (hl)
 	sub	a, #0x04
 	jp	NC, 00125$
-;main.c:728: if(i == boss_index)
+;main.c:730: if(i == boss_index)
 	ldhl	sp,	#8
 	ld	a, (hl)
 	ldhl	sp,	#25
 	sub	a, (hl)
 	jp	Z, 00124$
-;main.c:733: if(enemies[i].death == 1)
+;main.c:735: if(enemies[i].death == 1)
 	ldhl	sp,	#25
 	ld	c, (hl)
 	ld	b, #0x00
@@ -2198,7 +2244,7 @@ _spawn_boss_death_slimes::
 	ld	a, (bc)
 	dec	a
 	jp	NZ, 00124$
-;main.c:735: INT8 offset_x = offsets[spawned][0];
+;main.c:737: INT8 offset_x = offsets[spawned][0];
 	ldhl	sp,	#24
 	ld	c, (hl)
 	xor	a, a
@@ -2212,11 +2258,11 @@ _spawn_boss_death_slimes::
 	ld	b, h
 	ld	a, (bc)
 	ldhl	sp,	#19
-;main.c:736: INT8 offset_y = offsets[spawned][1];
+;main.c:738: INT8 offset_y = offsets[spawned][1];
 	ld	(hl+), a
 	inc	bc
 	ld	a, (bc)
-;main.c:740: if(offset_x < 0 && boss->x < (UINT8)(-offset_x))
+;main.c:742: if(offset_x < 0 && boss->x < (UINT8)(-offset_x))
 	ld	(hl-), a
 	bit	7, (hl)
 	jr	Z, 00107$
@@ -2236,11 +2282,11 @@ _spawn_boss_death_slimes::
 	ld	a, (hl)
 	sub	a, c
 	jr	NC, 00107$
-;main.c:742: spawn_x = MIN_ENEMY_X;
+;main.c:744: spawn_x = MIN_ENEMY_X;
 	ld	c, #0x18
 	jr	00108$
 00107$:
-;main.c:746: spawn_x = boss->x + offset_x;
+;main.c:748: spawn_x = boss->x + offset_x;
 	ldhl	sp,#11
 	ld	a, (hl+)
 	ld	e, a
@@ -2250,7 +2296,7 @@ _spawn_boss_death_slimes::
 	add	a, (hl)
 	ld	c, a
 00108$:
-;main.c:750: if(offset_y < 0 && boss->y < (UINT8)(-offset_y))
+;main.c:752: if(offset_y < 0 && boss->y < (UINT8)(-offset_y))
 	ldhl	sp,	#20
 	bit	7, (hl)
 	jr	Z, 00111$
@@ -2267,11 +2313,11 @@ _spawn_boss_death_slimes::
 	ld	a, b
 	sub	a, e
 	jr	NC, 00111$
-;main.c:752: spawn_y = MIN_ENEMY_Y;
+;main.c:754: spawn_y = MIN_ENEMY_Y;
 	ld	b, #0x1c
 	jr	00112$
 00111$:
-;main.c:756: spawn_y = boss->y + offset_y;
+;main.c:758: spawn_y = boss->y + offset_y;
 	ldhl	sp,#15
 	ld	a, (hl+)
 	ld	e, a
@@ -2281,35 +2327,35 @@ _spawn_boss_death_slimes::
 	add	a, (hl)
 	ld	b, a
 00112$:
-;main.c:760: if(spawn_x < MIN_ENEMY_X) spawn_x = MIN_ENEMY_X;
+;main.c:762: if(spawn_x < MIN_ENEMY_X) spawn_x = MIN_ENEMY_X;
 	ld	a, c
 	sub	a, #0x18
 	jr	NC, 00115$
 	ld	c, #0x18
 00115$:
-;main.c:761: if(spawn_x > MAX_ENEMY_X) spawn_x = MAX_ENEMY_X;
+;main.c:763: if(spawn_x > MAX_ENEMY_X) spawn_x = MAX_ENEMY_X;
 	ld	a, #0x90
 	sub	a, c
 	jr	NC, 00117$
 	ld	c, #0x90
 00117$:
-;main.c:762: if(spawn_y < MIN_ENEMY_Y) spawn_y = MIN_ENEMY_Y;
+;main.c:764: if(spawn_y < MIN_ENEMY_Y) spawn_y = MIN_ENEMY_Y;
 	ld	a, b
 	sub	a, #0x1c
 	jr	NC, 00119$
 	ld	b, #0x1c
 00119$:
-;main.c:763: if(spawn_y > MAX_ENEMY_Y) spawn_y = MAX_ENEMY_Y;
+;main.c:765: if(spawn_y > MAX_ENEMY_Y) spawn_y = MAX_ENEMY_Y;
 	ld	a, #0x78
 	sub	a, b
 	jr	NC, 00121$
 	ld	b, #0x78
 00121$:
-;main.c:765: UINT8 oam_slot = 26 + i;
+;main.c:767: UINT8 oam_slot = 26 + i;
 	ldhl	sp,	#25
 	ld	a, (hl)
 	add	a, #0x1a
-;main.c:767: setup_enemy(&enemies[i], oam_slot, spawn_x, spawn_y, ENEMY_TYPE_SLIME);
+;main.c:769: setup_enemy(&enemies[i], oam_slot, spawn_x, spawn_y, ENEMY_TYPE_SLIME);
 	ldhl	sp,	#17
 	ld	e, (hl)
 	inc	hl
@@ -2323,302 +2369,302 @@ _spawn_boss_death_slimes::
 	push	hl
 	inc	sp
 	call	_setup_enemy
-;main.c:768: spawned++;
+;main.c:770: spawned++;
 	ldhl	sp,	#24
 	inc	(hl)
 00124$:
-;main.c:725: for(UINT8 i = 0; i < MAX_ENEMIES && spawned < BOSS_DEATH_SLIMES; i++)
+;main.c:727: for(UINT8 i = 0; i < MAX_ENEMIES && spawned < BOSS_DEATH_SLIMES; i++)
 	ldhl	sp,	#25
 	inc	(hl)
 	jp	00133$
 00125$:
-;main.c:773: current_enemy_count += spawned;
+;main.c:775: current_enemy_count += spawned;
 	ldhl	sp,	#24
 	ld	a, (hl)
 	ld	hl, #_current_enemy_count
 	add	a, (hl)
 	ld	(hl), a
-;main.c:774: if(current_enemy_count > MAX_ENEMIES)
+;main.c:776: if(current_enemy_count > MAX_ENEMIES)
 	ld	a, #0x0a
 	sub	a, (hl)
 	jr	NC, 00134$
-;main.c:776: current_enemy_count = MAX_ENEMIES;
+;main.c:778: current_enemy_count = MAX_ENEMIES;
 	ld	(hl), #0x0a
 00134$:
-;main.c:778: }
+;main.c:780: }
 	add	sp, #26
 	ret
-;main.c:780: void update_window_stats_ui(void)
+;main.c:782: void update_window_stats_ui(void)
 ;	---------------------------------
 ; Function update_window_stats_ui
 ; ---------------------------------
 _update_window_stats_ui::
-;main.c:782: set_win_tile_xy(HUD_HP_X, HUD_ROW, TILE_H); // HP label (heart tile)
+;main.c:784: set_win_tile_xy(HUD_HP_X, HUD_ROW, TILE_H); // HP label (heart tile)
 	ld	a, #0x12
 	push	af
 	inc	sp
 	xor	a, a
 	ld	e, a
 	call	_set_win_tile_xy
-;main.c:783: set_win_tile_xy(HUD_HP_X + 1, HUD_ROW, TILE_P); 
+;main.c:785: set_win_tile_xy(HUD_HP_X + 1, HUD_ROW, TILE_P); 
 	ld	a, #0x1a
 	push	af
 	inc	sp
 	ld	e, #0x00
 	ld	a, #0x01
 	call	_set_win_tile_xy
-;main.c:784: write_window_2digits(player_stats.current_health, HUD_HP_X + 2, HUD_ROW);
+;main.c:786: write_window_2digits(player_stats.current_health, HUD_HP_X + 2, HUD_ROW);
 	ld	a, (#(_player_stats + 1) + 0)
 	ld	h, #0x00
 	push	hl
 	inc	sp
 	ld	e, #0x02
 	call	_write_window_2digits
-;main.c:786: set_win_tile_xy(HUD_DMG_X, HUD_ROW, TILE_D);
+;main.c:788: set_win_tile_xy(HUD_DMG_X, HUD_ROW, TILE_D);
 	ld	a, #0x0e
 	push	af
 	inc	sp
 	ld	e, #0x00
 	ld	a, #0x05
 	call	_set_win_tile_xy
-;main.c:787: set_win_tile_xy(HUD_DMG_X + 1, HUD_ROW, TILE_M);
+;main.c:789: set_win_tile_xy(HUD_DMG_X + 1, HUD_ROW, TILE_M);
 	ld	a, #0x17
 	push	af
 	inc	sp
 	ld	e, #0x00
 	ld	a, #0x06
 	call	_set_win_tile_xy
-;main.c:788: write_window_2digits(player_stats.damage, HUD_DMG_X + 2, HUD_ROW);
+;main.c:790: write_window_2digits(player_stats.damage, HUD_DMG_X + 2, HUD_ROW);
 	ld	a, (#(_player_stats + 2) + 0)
 	ld	h, #0x00
 	push	hl
 	inc	sp
 	ld	e, #0x07
 	call	_write_window_2digits
-;main.c:790: set_win_tile_xy(HUD_RANGE_X, HUD_ROW, TILE_S);
+;main.c:792: set_win_tile_xy(HUD_RANGE_X, HUD_ROW, TILE_S);
 	ld	a, #0x1d
 	push	af
 	inc	sp
 	ld	e, #0x00
 	ld	a, #0x0a
 	call	_set_win_tile_xy
-;main.c:791: set_win_tile_xy(HUD_RANGE_X + 1, HUD_ROW, TILE_P);
+;main.c:793: set_win_tile_xy(HUD_RANGE_X + 1, HUD_ROW, TILE_P);
 	ld	a, #0x1a
 	push	af
 	inc	sp
 	ld	e, #0x00
 	ld	a, #0x0b
 	call	_set_win_tile_xy
-;main.c:792: write_window_2digits(player_stats.speed, HUD_RANGE_X + 2, HUD_ROW);
+;main.c:794: write_window_2digits(player_stats.speed, HUD_RANGE_X + 2, HUD_ROW);
 	ld	a, (#(_player_stats + 4) + 0)
 	ld	h, #0x00
 	push	hl
 	inc	sp
 	ld	e, #0x0c
 	call	_write_window_2digits
-;main.c:795: set_win_tile_xy(STAGE_X, HUD_ROW, TILE_S);
+;main.c:797: set_win_tile_xy(STAGE_X, HUD_ROW, TILE_S);
 	ld	a, #0x1d
 	push	af
 	inc	sp
 	ld	e, #0x00
 	ld	a, #0x0f
 	call	_set_win_tile_xy
-;main.c:796: set_win_tile_xy(STAGE_X + 1, HUD_ROW, TILE_T);
+;main.c:798: set_win_tile_xy(STAGE_X + 1, HUD_ROW, TILE_T);
 	ld	a, #0x1e
 	push	af
 	inc	sp
 	ld	e, #0x00
 	ld	a, #0x10
 	call	_set_win_tile_xy
-;main.c:797: set_win_tile_xy(STAGE_X + 2, HUD_ROW, TILE_G);
+;main.c:799: set_win_tile_xy(STAGE_X + 2, HUD_ROW, TILE_G);
 	ld	a, #0x11
 	push	af
 	inc	sp
 	ld	e, #0x00
 	ld	a, #0x11
 	call	_set_win_tile_xy
-;main.c:798: write_window_2digits(stage, STAGE_X + 3, HUD_ROW);
+;main.c:800: write_window_2digits(stage, STAGE_X + 3, HUD_ROW);
 	xor	a, a
 	push	af
 	inc	sp
 	ld	e, #0x12
 	ld	a, (_stage)
 	call	_write_window_2digits
-;main.c:799: }
+;main.c:801: }
 	ret
-;main.c:801: void show_pause_ui(void)
+;main.c:803: void show_pause_ui(void)
 ;	---------------------------------
 ; Function show_pause_ui
 ; ---------------------------------
 _show_pause_ui::
-;main.c:803: set_win_tile_xy(PAUSE_TEXT_X + 0, PAUSE_ROW, TILE_P);
+;main.c:805: set_win_tile_xy(PAUSE_TEXT_X + 0, PAUSE_ROW, TILE_P);
 	ld	a, #0x1a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x07
 	call	_set_win_tile_xy
-;main.c:804: set_win_tile_xy(PAUSE_TEXT_X + 1, PAUSE_ROW, TILE_A);
+;main.c:806: set_win_tile_xy(PAUSE_TEXT_X + 1, PAUSE_ROW, TILE_A);
 	ld	a, #0x0b
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x08
 	call	_set_win_tile_xy
-;main.c:805: set_win_tile_xy(PAUSE_TEXT_X + 2, PAUSE_ROW, TILE_U);
+;main.c:807: set_win_tile_xy(PAUSE_TEXT_X + 2, PAUSE_ROW, TILE_U);
 	ld	a, #0x1f
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x09
 	call	_set_win_tile_xy
-;main.c:806: set_win_tile_xy(PAUSE_TEXT_X + 3, PAUSE_ROW, TILE_S);
+;main.c:808: set_win_tile_xy(PAUSE_TEXT_X + 3, PAUSE_ROW, TILE_S);
 	ld	a, #0x1d
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0a
 	call	_set_win_tile_xy
-;main.c:807: set_win_tile_xy(PAUSE_TEXT_X + 4, PAUSE_ROW, TILE_E);
+;main.c:809: set_win_tile_xy(PAUSE_TEXT_X + 4, PAUSE_ROW, TILE_E);
 	ld	a, #0x0f
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0b
 	call	_set_win_tile_xy
-;main.c:808: }
+;main.c:810: }
 	ret
-;main.c:810: void hide_pause_ui(void)
+;main.c:812: void hide_pause_ui(void)
 ;	---------------------------------
 ; Function hide_pause_ui
 ; ---------------------------------
 _hide_pause_ui::
-;main.c:812: set_win_tile_xy(PAUSE_TEXT_X + 0, PAUSE_ROW, 0);
+;main.c:814: set_win_tile_xy(PAUSE_TEXT_X + 0, PAUSE_ROW, 0);
 	xor	a, a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x07
 	call	_set_win_tile_xy
-;main.c:813: set_win_tile_xy(PAUSE_TEXT_X + 1, PAUSE_ROW, 0);
+;main.c:815: set_win_tile_xy(PAUSE_TEXT_X + 1, PAUSE_ROW, 0);
 	xor	a, a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x08
 	call	_set_win_tile_xy
-;main.c:814: set_win_tile_xy(PAUSE_TEXT_X + 2, PAUSE_ROW, 0);
+;main.c:816: set_win_tile_xy(PAUSE_TEXT_X + 2, PAUSE_ROW, 0);
 	xor	a, a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x09
 	call	_set_win_tile_xy
-;main.c:815: set_win_tile_xy(PAUSE_TEXT_X + 3, PAUSE_ROW, 0);
+;main.c:817: set_win_tile_xy(PAUSE_TEXT_X + 3, PAUSE_ROW, 0);
 	xor	a, a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0a
 	call	_set_win_tile_xy
-;main.c:816: set_win_tile_xy(PAUSE_TEXT_X + 4, PAUSE_ROW, 0);
+;main.c:818: set_win_tile_xy(PAUSE_TEXT_X + 4, PAUSE_ROW, 0);
 	xor	a, a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0b
 	call	_set_win_tile_xy
-;main.c:817: }
+;main.c:819: }
 	ret
-;main.c:819: void show_room_clear_ui(void)
+;main.c:821: void show_room_clear_ui(void)
 ;	---------------------------------
 ; Function show_room_clear_ui
 ; ---------------------------------
 _show_room_clear_ui::
-;main.c:821: set_win_tile_xy(ROOM_CLEAR_X + 0, ROOM_CLEAR_ROW, TILE_R);
+;main.c:823: set_win_tile_xy(ROOM_CLEAR_X + 0, ROOM_CLEAR_ROW, TILE_R);
 	ld	a, #0x1c
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x05
 	call	_set_win_tile_xy
-;main.c:822: set_win_tile_xy(ROOM_CLEAR_X + 1, ROOM_CLEAR_ROW, TILE_O);
+;main.c:824: set_win_tile_xy(ROOM_CLEAR_X + 1, ROOM_CLEAR_ROW, TILE_O);
 	ld	a, #0x19
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x06
 	call	_set_win_tile_xy
-;main.c:823: set_win_tile_xy(ROOM_CLEAR_X + 2, ROOM_CLEAR_ROW, TILE_O);
+;main.c:825: set_win_tile_xy(ROOM_CLEAR_X + 2, ROOM_CLEAR_ROW, TILE_O);
 	ld	a, #0x19
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x07
 	call	_set_win_tile_xy
-;main.c:824: set_win_tile_xy(ROOM_CLEAR_X + 3, ROOM_CLEAR_ROW, TILE_M);
+;main.c:826: set_win_tile_xy(ROOM_CLEAR_X + 3, ROOM_CLEAR_ROW, TILE_M);
 	ld	a, #0x17
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x08
 	call	_set_win_tile_xy
-;main.c:825: set_win_tile_xy(ROOM_CLEAR_X + 4, ROOM_CLEAR_ROW, 0);
+;main.c:827: set_win_tile_xy(ROOM_CLEAR_X + 4, ROOM_CLEAR_ROW, 0);
 	xor	a, a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x09
 	call	_set_win_tile_xy
-;main.c:826: set_win_tile_xy(ROOM_CLEAR_X + 5, ROOM_CLEAR_ROW, TILE_C);
+;main.c:828: set_win_tile_xy(ROOM_CLEAR_X + 5, ROOM_CLEAR_ROW, TILE_C);
 	ld	a, #0x0d
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0a
 	call	_set_win_tile_xy
-;main.c:827: set_win_tile_xy(ROOM_CLEAR_X + 6, ROOM_CLEAR_ROW, TILE_L);
+;main.c:829: set_win_tile_xy(ROOM_CLEAR_X + 6, ROOM_CLEAR_ROW, TILE_L);
 	ld	a, #0x16
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0b
 	call	_set_win_tile_xy
-;main.c:828: set_win_tile_xy(ROOM_CLEAR_X + 7, ROOM_CLEAR_ROW, TILE_E);
+;main.c:830: set_win_tile_xy(ROOM_CLEAR_X + 7, ROOM_CLEAR_ROW, TILE_E);
 	ld	a, #0x0f
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0c
 	call	_set_win_tile_xy
-;main.c:829: set_win_tile_xy(ROOM_CLEAR_X + 8, ROOM_CLEAR_ROW, TILE_A);
+;main.c:831: set_win_tile_xy(ROOM_CLEAR_X + 8, ROOM_CLEAR_ROW, TILE_A);
 	ld	a, #0x0b
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0d
 	call	_set_win_tile_xy
-;main.c:830: set_win_tile_xy(ROOM_CLEAR_X + 9, ROOM_CLEAR_ROW, TILE_R);
+;main.c:832: set_win_tile_xy(ROOM_CLEAR_X + 9, ROOM_CLEAR_ROW, TILE_R);
 	ld	a, #0x1c
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0e
 	call	_set_win_tile_xy
-;main.c:831: }
+;main.c:833: }
 	ret
-;main.c:833: void hide_room_clear_ui(void)
+;main.c:835: void hide_room_clear_ui(void)
 ;	---------------------------------
 ; Function hide_room_clear_ui
 ; ---------------------------------
 _hide_room_clear_ui::
-;main.c:835: for(UINT8 i = 0; i < 10; i++)
+;main.c:837: for(UINT8 i = 0; i < 10; i++)
 	ld	c, #0x00
 00103$:
 	ld	a, c
 	sub	a, #0x0a
 	ret	NC
-;main.c:837: set_win_tile_xy(ROOM_CLEAR_X + i, ROOM_CLEAR_ROW, 0);
+;main.c:839: set_win_tile_xy(ROOM_CLEAR_X + i, ROOM_CLEAR_ROW, 0);
 	ld	a, c
 	add	a, #0x05
 	push	bc
@@ -2628,64 +2674,64 @@ _hide_room_clear_ui::
 	ld	e, #0x01
 	call	_set_win_tile_xy
 	pop	bc
-;main.c:835: for(UINT8 i = 0; i < 10; i++)
+;main.c:837: for(UINT8 i = 0; i < 10; i++)
 	inc	c
-;main.c:839: }
+;main.c:841: }
 	jr	00103$
-;main.c:841: void show_ready_ui(void)
+;main.c:843: void show_ready_ui(void)
 ;	---------------------------------
 ; Function show_ready_ui
 ; ---------------------------------
 _show_ready_ui::
-;main.c:843: set_win_tile_xy(READY_X + 0, READY_ROW, TILE_R);
+;main.c:845: set_win_tile_xy(READY_X + 0, READY_ROW, TILE_R);
 	ld	a, #0x1c
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x07
 	call	_set_win_tile_xy
-;main.c:844: set_win_tile_xy(READY_X + 1, READY_ROW, TILE_E);
+;main.c:846: set_win_tile_xy(READY_X + 1, READY_ROW, TILE_E);
 	ld	a, #0x0f
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x08
 	call	_set_win_tile_xy
-;main.c:845: set_win_tile_xy(READY_X + 2, READY_ROW, TILE_A);
+;main.c:847: set_win_tile_xy(READY_X + 2, READY_ROW, TILE_A);
 	ld	a, #0x0b
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x09
 	call	_set_win_tile_xy
-;main.c:846: set_win_tile_xy(READY_X + 3, READY_ROW, TILE_D);
+;main.c:848: set_win_tile_xy(READY_X + 3, READY_ROW, TILE_D);
 	ld	a, #0x0e
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0a
 	call	_set_win_tile_xy
-;main.c:847: set_win_tile_xy(READY_X + 4, READY_ROW, TILE_Y);
+;main.c:849: set_win_tile_xy(READY_X + 4, READY_ROW, TILE_Y);
 	ld	a, #0x23
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0b
 	call	_set_win_tile_xy
-;main.c:848: }
+;main.c:850: }
 	ret
-;main.c:850: void hide_ready_ui(void)
+;main.c:852: void hide_ready_ui(void)
 ;	---------------------------------
 ; Function hide_ready_ui
 ; ---------------------------------
 _hide_ready_ui::
-;main.c:852: for(UINT8 i = 0; i < 5; i++)
+;main.c:854: for(UINT8 i = 0; i < 5; i++)
 	ld	c, #0x00
 00103$:
 	ld	a, c
 	sub	a, #0x05
 	ret	NC
-;main.c:854: set_win_tile_xy(READY_X + i, READY_ROW, 0);
+;main.c:856: set_win_tile_xy(READY_X + i, READY_ROW, 0);
 	ld	a, c
 	add	a, #0x07
 	push	bc
@@ -2695,47 +2741,47 @@ _hide_ready_ui::
 	ld	e, #0x01
 	call	_set_win_tile_xy
 	pop	bc
-;main.c:852: for(UINT8 i = 0; i < 5; i++)
+;main.c:854: for(UINT8 i = 0; i < 5; i++)
 	inc	c
-;main.c:856: }
+;main.c:858: }
 	jr	00103$
-;main.c:858: void show_reward_ui(UINT8 reward)
+;main.c:860: void show_reward_ui(UINT8 reward)
 ;	---------------------------------
 ; Function show_reward_ui
 ; ---------------------------------
 _show_reward_ui::
-;main.c:860: if(reward == REWARD_HP)
+;main.c:862: if(reward == REWARD_HP)
 	or	a, a
 	jr	NZ, 00105$
-;main.c:862: set_win_tile_xy(REWARD_X + 0, REWARD_ROW, TILE_H);
+;main.c:864: set_win_tile_xy(REWARD_X + 0, REWARD_ROW, TILE_H);
 	ld	a, #0x12
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x07
 	call	_set_win_tile_xy
-;main.c:863: set_win_tile_xy(REWARD_X + 1, REWARD_ROW, TILE_P);
+;main.c:865: set_win_tile_xy(REWARD_X + 1, REWARD_ROW, TILE_P);
 	ld	a, #0x1a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x08
 	call	_set_win_tile_xy
-;main.c:864: set_win_tile_xy(REWARD_X + 2, REWARD_ROW, 0);
+;main.c:866: set_win_tile_xy(REWARD_X + 2, REWARD_ROW, 0);
 	xor	a, a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x09
 	call	_set_win_tile_xy
-;main.c:865: set_win_tile_xy(REWARD_X + 3, REWARD_ROW, TILE_U);
+;main.c:867: set_win_tile_xy(REWARD_X + 3, REWARD_ROW, TILE_U);
 	ld	a, #0x1f
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0a
 	call	_set_win_tile_xy
-;main.c:866: set_win_tile_xy(REWARD_X + 4, REWARD_ROW, TILE_P);
+;main.c:868: set_win_tile_xy(REWARD_X + 4, REWARD_ROW, TILE_P);
 	ld	a, #0x1a
 	push	af
 	inc	sp
@@ -2744,45 +2790,45 @@ _show_reward_ui::
 	call	_set_win_tile_xy
 	ret
 00105$:
-;main.c:868: else if(reward == REWARD_DMG)
+;main.c:870: else if(reward == REWARD_DMG)
 	dec	a
 	jr	NZ, 00102$
-;main.c:870: set_win_tile_xy(REWARD_X + 0, REWARD_ROW, TILE_D);
+;main.c:872: set_win_tile_xy(REWARD_X + 0, REWARD_ROW, TILE_D);
 	ld	a, #0x0e
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x07
 	call	_set_win_tile_xy
-;main.c:871: set_win_tile_xy(REWARD_X + 1, REWARD_ROW, TILE_M);
+;main.c:873: set_win_tile_xy(REWARD_X + 1, REWARD_ROW, TILE_M);
 	ld	a, #0x17
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x08
 	call	_set_win_tile_xy
-;main.c:872: set_win_tile_xy(REWARD_X + 2, REWARD_ROW, TILE_G);
+;main.c:874: set_win_tile_xy(REWARD_X + 2, REWARD_ROW, TILE_G);
 	ld	a, #0x11
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x09
 	call	_set_win_tile_xy
-;main.c:873: set_win_tile_xy(REWARD_X + 3, REWARD_ROW, 0);
+;main.c:875: set_win_tile_xy(REWARD_X + 3, REWARD_ROW, 0);
 	xor	a, a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0a
 	call	_set_win_tile_xy
-;main.c:874: set_win_tile_xy(REWARD_X + 4, REWARD_ROW, TILE_U);
+;main.c:876: set_win_tile_xy(REWARD_X + 4, REWARD_ROW, TILE_U);
 	ld	a, #0x1f
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0b
 	call	_set_win_tile_xy
-;main.c:875: set_win_tile_xy(REWARD_X + 5, REWARD_ROW, TILE_P);
+;main.c:877: set_win_tile_xy(REWARD_X + 5, REWARD_ROW, TILE_P);
 	ld	a, #0x1a
 	push	af
 	inc	sp
@@ -2791,76 +2837,76 @@ _show_reward_ui::
 	call	_set_win_tile_xy
 	ret
 00102$:
-;main.c:879: set_win_tile_xy(REWARD_X + 0, REWARD_ROW, TILE_S);
+;main.c:881: set_win_tile_xy(REWARD_X + 0, REWARD_ROW, TILE_S);
 	ld	a, #0x1d
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x07
 	call	_set_win_tile_xy
-;main.c:880: set_win_tile_xy(REWARD_X + 1, REWARD_ROW, TILE_P);
+;main.c:882: set_win_tile_xy(REWARD_X + 1, REWARD_ROW, TILE_P);
 	ld	a, #0x1a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x08
 	call	_set_win_tile_xy
-;main.c:881: set_win_tile_xy(REWARD_X + 2, REWARD_ROW, TILE_E);
+;main.c:883: set_win_tile_xy(REWARD_X + 2, REWARD_ROW, TILE_E);
 	ld	a, #0x0f
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x09
 	call	_set_win_tile_xy
-;main.c:882: set_win_tile_xy(REWARD_X + 3, REWARD_ROW, TILE_E);
+;main.c:884: set_win_tile_xy(REWARD_X + 3, REWARD_ROW, TILE_E);
 	ld	a, #0x0f
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0a
 	call	_set_win_tile_xy
-;main.c:883: set_win_tile_xy(REWARD_X + 4, REWARD_ROW, TILE_D);
+;main.c:885: set_win_tile_xy(REWARD_X + 4, REWARD_ROW, TILE_D);
 	ld	a, #0x0e
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0b
 	call	_set_win_tile_xy
-;main.c:884: set_win_tile_xy(REWARD_X + 5, REWARD_ROW, 0);
+;main.c:886: set_win_tile_xy(REWARD_X + 5, REWARD_ROW, 0);
 	xor	a, a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0c
 	call	_set_win_tile_xy
-;main.c:885: set_win_tile_xy(REWARD_X + 6, REWARD_ROW, TILE_U);
+;main.c:887: set_win_tile_xy(REWARD_X + 6, REWARD_ROW, TILE_U);
 	ld	a, #0x1f
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0d
 	call	_set_win_tile_xy
-;main.c:886: set_win_tile_xy(REWARD_X + 7, REWARD_ROW, TILE_P);
+;main.c:888: set_win_tile_xy(REWARD_X + 7, REWARD_ROW, TILE_P);
 	ld	a, #0x1a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0e
 	call	_set_win_tile_xy
-;main.c:888: }
+;main.c:890: }
 	ret
-;main.c:890: void hide_reward_ui(void)
+;main.c:892: void hide_reward_ui(void)
 ;	---------------------------------
 ; Function hide_reward_ui
 ; ---------------------------------
 _hide_reward_ui::
-;main.c:892: for(UINT8 i = 0; i < 10; i++)
+;main.c:894: for(UINT8 i = 0; i < 10; i++)
 	ld	c, #0x00
 00103$:
 	ld	a, c
 	sub	a, #0x0a
 	ret	NC
-;main.c:894: set_win_tile_xy(REWARD_X + i, REWARD_ROW, 0);
+;main.c:896: set_win_tile_xy(REWARD_X + i, REWARD_ROW, 0);
 	ld	a, c
 	add	a, #0x07
 	push	bc
@@ -2870,22 +2916,22 @@ _hide_reward_ui::
 	ld	e, #0x01
 	call	_set_win_tile_xy
 	pop	bc
-;main.c:892: for(UINT8 i = 0; i < 10; i++)
+;main.c:894: for(UINT8 i = 0; i < 10; i++)
 	inc	c
-;main.c:896: }
+;main.c:898: }
 	jr	00103$
-;main.c:898: void show_game_over_ui(void)
+;main.c:900: void show_game_over_ui(void)
 ;	---------------------------------
 ; Function show_game_over_ui
 ; ---------------------------------
 _show_game_over_ui::
-;main.c:900: for(UINT8 x = 0; x < 20; x++)
+;main.c:902: for(UINT8 x = 0; x < 20; x++)
 	ld	c, #0x00
 00103$:
 	ld	a, c
 	sub	a, #0x14
 	jr	NC, 00101$
-;main.c:902: set_win_tile_xy(x, 0, 0);
+;main.c:904: set_win_tile_xy(x, 0, 0);
 	push	bc
 	xor	a, a
 	push	af
@@ -2894,7 +2940,7 @@ _show_game_over_ui::
 	ld	a, c
 	call	_set_win_tile_xy
 	pop	bc
-;main.c:903: set_win_tile_xy(x, 1, 0);
+;main.c:905: set_win_tile_xy(x, 1, 0);
 	push	bc
 	xor	a, a
 	push	af
@@ -2903,164 +2949,164 @@ _show_game_over_ui::
 	ld	a, c
 	call	_set_win_tile_xy
 	pop	bc
-;main.c:900: for(UINT8 x = 0; x < 20; x++)
+;main.c:902: for(UINT8 x = 0; x < 20; x++)
 	inc	c
 	jr	00103$
 00101$:
-;main.c:906: set_win_tile_xy(5, 1, TILE_G);
+;main.c:908: set_win_tile_xy(5, 1, TILE_G);
 	ld	a, #0x11
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x05
 	call	_set_win_tile_xy
-;main.c:907: set_win_tile_xy(6, 1, TILE_A);
+;main.c:909: set_win_tile_xy(6, 1, TILE_A);
 	ld	a, #0x0b
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x06
 	call	_set_win_tile_xy
-;main.c:908: set_win_tile_xy(7, 1, TILE_M);
+;main.c:910: set_win_tile_xy(7, 1, TILE_M);
 	ld	a, #0x17
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x07
 	call	_set_win_tile_xy
-;main.c:909: set_win_tile_xy(8, 1, TILE_E);
+;main.c:911: set_win_tile_xy(8, 1, TILE_E);
 	ld	a, #0x0f
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x08
 	call	_set_win_tile_xy
-;main.c:910: set_win_tile_xy(9, 1, 0);
+;main.c:912: set_win_tile_xy(9, 1, 0);
 	xor	a, a
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x09
 	call	_set_win_tile_xy
-;main.c:911: set_win_tile_xy(10, 1, TILE_O);
+;main.c:913: set_win_tile_xy(10, 1, TILE_O);
 	ld	a, #0x19
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0a
 	call	_set_win_tile_xy
-;main.c:912: set_win_tile_xy(11, 1, TILE_V);
+;main.c:914: set_win_tile_xy(11, 1, TILE_V);
 	ld	a, #0x20
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0b
 	call	_set_win_tile_xy
-;main.c:913: set_win_tile_xy(12, 1, TILE_E);
+;main.c:915: set_win_tile_xy(12, 1, TILE_E);
 	ld	a, #0x0f
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0c
 	call	_set_win_tile_xy
-;main.c:914: set_win_tile_xy(13, 1, TILE_R);
+;main.c:916: set_win_tile_xy(13, 1, TILE_R);
 	ld	a, #0x1c
 	push	af
 	inc	sp
 	ld	e, #0x01
 	ld	a, #0x0d
 	call	_set_win_tile_xy
-;main.c:915: }
+;main.c:917: }
 	ret
-;main.c:917: void roll_room_reward(void)
+;main.c:919: void roll_room_reward(void)
 ;	---------------------------------
 ; Function roll_room_reward
 ; ---------------------------------
 _roll_room_reward::
-;main.c:919: reward_type = rand() % 3;
+;main.c:921: reward_type = rand() % 3;
 	call	_rand
 	ld	a, e
 	ld	e, #0x03
 	call	__moduchar
 	ld	hl, #_reward_type
 	ld	(hl), c
-;main.c:920: }
+;main.c:922: }
 	ret
-;main.c:922: void apply_reward(UINT8 reward)
+;main.c:924: void apply_reward(UINT8 reward)
 ;	---------------------------------
 ; Function apply_reward
 ; ---------------------------------
 _apply_reward::
-;main.c:924: if(reward == REWARD_HP)
+;main.c:926: if(reward == REWARD_HP)
 	or	a, a
 	jr	NZ, 00114$
-;main.c:926: UINT8 boosted_max_hp = player_stats.max_health + HP_REWARD_AMOUNT;
+;main.c:928: UINT8 boosted_max_hp = player_stats.max_health + HP_REWARD_AMOUNT;
 	ld	bc, #_player_stats
 	ld	a, (bc)
 	add	a, #0x02
-;main.c:927: if(boosted_max_hp > PLAYER_MAX_HP_CAP)
+;main.c:929: if(boosted_max_hp > PLAYER_MAX_HP_CAP)
 	cp	a, #0x1f
 	jr	C, 00102$
-;main.c:929: player_stats.max_health = PLAYER_MAX_HP_CAP;
+;main.c:931: player_stats.max_health = PLAYER_MAX_HP_CAP;
 	ld	a, #0x1e
 	ld	(bc), a
 	jr	00103$
 00102$:
-;main.c:933: player_stats.max_health = boosted_max_hp;
+;main.c:935: player_stats.max_health = boosted_max_hp;
 	ld	(bc), a
 00103$:
-;main.c:936: UINT8 boosted_hp = player_stats.current_health + HP_REWARD_AMOUNT;
+;main.c:938: UINT8 boosted_hp = player_stats.current_health + HP_REWARD_AMOUNT;
 	ld	hl, #_player_stats + 1
 	ld	e, (hl)
 	inc	e
 	inc	e
-;main.c:926: UINT8 boosted_max_hp = player_stats.max_health + HP_REWARD_AMOUNT;
+;main.c:928: UINT8 boosted_max_hp = player_stats.max_health + HP_REWARD_AMOUNT;
 	ld	a, (bc)
-;main.c:937: if(boosted_hp > player_stats.max_health)
+;main.c:939: if(boosted_hp > player_stats.max_health)
 	ld	c, a
 	sub	a, e
 	jr	NC, 00105$
-;main.c:939: player_stats.current_health = player_stats.max_health;
+;main.c:941: player_stats.current_health = player_stats.max_health;
 	ld	(hl), c
 	ret
 00105$:
-;main.c:943: player_stats.current_health = boosted_hp;
+;main.c:945: player_stats.current_health = boosted_hp;
 	ld	(hl), e
 	ret
 00114$:
-;main.c:946: else if(reward == REWARD_DMG)
+;main.c:948: else if(reward == REWARD_DMG)
 	dec	a
 	jr	NZ, 00111$
-;main.c:948: player_stats.damage += DMG_REWARD_AMOUNT;
+;main.c:950: player_stats.damage += DMG_REWARD_AMOUNT;
 	ld	bc, #_player_stats+2
 	ld	a, (bc)
 	add	a, #0x02
 	ld	(bc), a
 	ret
 00111$:
-;main.c:952: UINT8 boosted_speed = player_stats.speed + SPEED_REWARD_AMOUNT;
+;main.c:954: UINT8 boosted_speed = player_stats.speed + SPEED_REWARD_AMOUNT;
 	ld	bc, #_player_stats+4
 	ld	a, (bc)
 	inc	a
-;main.c:953: if(boosted_speed > PLAYER_SPEED_CAP)
+;main.c:955: if(boosted_speed > PLAYER_SPEED_CAP)
 	cp	a, #0x07
 	jr	C, 00108$
-;main.c:955: player_stats.speed = PLAYER_SPEED_CAP;
+;main.c:957: player_stats.speed = PLAYER_SPEED_CAP;
 	ld	a, #0x06
 	ld	(bc), a
 	ret
 00108$:
-;main.c:959: player_stats.speed = boosted_speed;
+;main.c:961: player_stats.speed = boosted_speed;
 	ld	(bc), a
-;main.c:962: }
+;main.c:964: }
 	ret
-;main.c:964: void write_window_2digits(UINT8 value, UINT8 x, UINT8 y)
+;main.c:966: void write_window_2digits(UINT8 value, UINT8 x, UINT8 y)
 ;	---------------------------------
 ; Function write_window_2digits
 ; ---------------------------------
 _write_window_2digits::
 	ld	b, e
-;main.c:968: UINT8 tens = value / 10;
+;main.c:970: UINT8 tens = value / 10;
 	ld	c, a
 	push	bc
 	ld	e, #0x0a
@@ -3068,7 +3114,7 @@ _write_window_2digits::
 	call	__divuchar
 	ld	l, c
 	pop	bc
-;main.c:969: UINT8 ones = value % 10;
+;main.c:971: UINT8 ones = value % 10;
 	push	hl
 	push	bc
 	ld	e, #0x0a
@@ -3077,7 +3123,7 @@ _write_window_2digits::
 	pop	af
 	ld	b, a
 	pop	hl
-;main.c:971: set_win_tile_xy(x, y, DIGIT_TILE_BASE + tens);
+;main.c:973: set_win_tile_xy(x, y, DIGIT_TILE_BASE + tens);
 	ld	a, l
 	inc	a
 	push	bc
@@ -3088,7 +3134,7 @@ _write_window_2digits::
 	ld	a, b
 	call	_set_win_tile_xy
 	pop	bc
-;main.c:972: set_win_tile_xy(x + 1, y, DIGIT_TILE_BASE + ones);
+;main.c:974: set_win_tile_xy(x + 1, y, DIGIT_TILE_BASE + ones);
 	inc	c
 	ld	a, b
 	inc	a
@@ -3098,137 +3144,137 @@ _write_window_2digits::
 	ldhl	sp,	#3
 	ld	e, (hl)
 	call	_set_win_tile_xy
-;main.c:973: }
+;main.c:975: }
 	pop	hl
 	inc	sp
 	jp	(hl)
-;main.c:974: UINT8 player_take_damage(UINT8 amount)
+;main.c:976: UINT8 player_take_damage(UINT8 amount)
 ;	---------------------------------
 ; Function player_take_damage
 ; ---------------------------------
 _player_take_damage::
 	ld	c, a
-;main.c:976: if(player_stats.invuln_timer == 0 && player_stats.is_dead == 0)
+;main.c:978: if(player_stats.invuln_timer == 0 && player_stats.is_dead == 0)
 	ld	a, (#(_player_stats + 5) + 0)
 	or	a, a
 	jr	NZ, 00105$
 	ld	a, (#(_player_stats + 6) + 0)
 	or	a, a
 	jr	NZ, 00105$
-;main.c:978: if(amount >= player_stats.current_health)
+;main.c:980: if(amount >= player_stats.current_health)
 	ld	hl, #(_player_stats + 1)
 	ld	b, (hl)
 	ld	a, c
 	sub	a, b
 	jr	C, 00102$
-;main.c:980: player_stats.current_health = 0;
+;main.c:982: player_stats.current_health = 0;
 	ld	hl, #(_player_stats + 1)
 	ld	(hl), #0x00
-;main.c:981: player_stats.is_dead = 1;
+;main.c:983: player_stats.is_dead = 1;
 	ld	hl, #(_player_stats + 6)
 	ld	(hl), #0x01
 	jr	00103$
 00102$:
-;main.c:985: player_stats.current_health -= amount;
+;main.c:987: player_stats.current_health -= amount;
 	ld	a, b
 	sub	a, c
 	ld	(#(_player_stats + 1)),a
 00103$:
-;main.c:987: sfx_player_hurt();
+;main.c:989: sfx_player_hurt();
 	call	_sfx_player_hurt
-;main.c:988: player_stats.invuln_timer = INVULN_FRAMES;
+;main.c:990: player_stats.invuln_timer = INVULN_FRAMES;
 	ld	hl, #(_player_stats + 5)
 	ld	(hl), #0x0a
-;main.c:989: return 1;
+;main.c:991: return 1;
 	ld	a, #0x01
 	ret
 00105$:
-;main.c:991: return 0;
+;main.c:993: return 0;
 	xor	a, a
-;main.c:992: }            
+;main.c:994: }            
 	ret
-;main.c:993: void audio_init(void)
+;main.c:995: void audio_init(void)
 ;	---------------------------------
 ; Function audio_init
 ; ---------------------------------
 _audio_init::
-;main.c:995: NR52_REG = 0x80;
+;main.c:997: NR52_REG = 0x80;
 	ld	a, #0x80
 	ldh	(_NR52_REG + 0), a
-;main.c:996: NR50_REG = 0x77;
+;main.c:998: NR50_REG = 0x77;
 	ld	a, #0x77
 	ldh	(_NR50_REG + 0), a
-;main.c:997: NR51_REG = 0xFF;
+;main.c:999: NR51_REG = 0xFF;
 	ld	a, #0xff
 	ldh	(_NR51_REG + 0), a
-;main.c:998: }
+;main.c:1000: }
 	ret
-;main.c:1000: void sfx_swing(void)
+;main.c:1002: void sfx_swing(void)
 ;	---------------------------------
 ; Function sfx_swing
 ; ---------------------------------
 _sfx_swing::
-;main.c:1002: NR41_REG = 0x00;
+;main.c:1004: NR41_REG = 0x00;
 	xor	a, a
 	ldh	(_NR41_REG + 0), a
-;main.c:1003: NR42_REG = 0xF1;
+;main.c:1005: NR42_REG = 0xF1;
 	ld	a, #0xf1
 	ldh	(_NR42_REG + 0), a
-;main.c:1004: NR43_REG = 0x35;
+;main.c:1006: NR43_REG = 0x35;
 	ld	a, #0x35
 	ldh	(_NR43_REG + 0), a
-;main.c:1005: NR44_REG = 0x80;
+;main.c:1007: NR44_REG = 0x80;
 	ld	a, #0x80
 	ldh	(_NR44_REG + 0), a
-;main.c:1006: }
+;main.c:1008: }
 	ret
-;main.c:1008: void sfx_enemy_hit(void)
+;main.c:1010: void sfx_enemy_hit(void)
 ;	---------------------------------
 ; Function sfx_enemy_hit
 ; ---------------------------------
 _sfx_enemy_hit::
-;main.c:1011: NR10_REG = 0x16;
+;main.c:1013: NR10_REG = 0x16;
 	ld	a, #0x16
 	ldh	(_NR10_REG + 0), a
-;main.c:1012: NR11_REG = 0x80;
+;main.c:1014: NR11_REG = 0x80;
 	ld	a, #0x80
 	ldh	(_NR11_REG + 0), a
-;main.c:1013: NR12_REG = 0xF2;
+;main.c:1015: NR12_REG = 0xF2;
 	ld	a, #0xf2
 	ldh	(_NR12_REG + 0), a
-;main.c:1014: NR13_REG = 0x40;
+;main.c:1016: NR13_REG = 0x40;
 	ld	a, #0x40
 	ldh	(_NR13_REG + 0), a
-;main.c:1015: NR14_REG = 0x87;
+;main.c:1017: NR14_REG = 0x87;
 	ld	a, #0x87
 	ldh	(_NR14_REG + 0), a
-;main.c:1016: }
+;main.c:1018: }
 	ret
-;main.c:1018: void sfx_player_hurt(void)
+;main.c:1020: void sfx_player_hurt(void)
 ;	---------------------------------
 ; Function sfx_player_hurt
 ; ---------------------------------
 _sfx_player_hurt::
-;main.c:1021: NR41_REG = 0x00;
+;main.c:1023: NR41_REG = 0x00;
 	xor	a, a
 	ldh	(_NR41_REG + 0), a
-;main.c:1022: NR42_REG = 0xC2;
+;main.c:1024: NR42_REG = 0xC2;
 	ld	a, #0xc2
 	ldh	(_NR42_REG + 0), a
-;main.c:1023: NR43_REG = 0x20;
+;main.c:1025: NR43_REG = 0x20;
 	ld	a, #0x20
 	ldh	(_NR43_REG + 0), a
-;main.c:1024: NR44_REG = 0x80;
+;main.c:1026: NR44_REG = 0x80;
 	ld	a, #0x80
 	ldh	(_NR44_REG + 0), a
-;main.c:1025: }
+;main.c:1027: }
 	ret
-;main.c:1027: void init_player_stats(void)
+;main.c:1029: void init_player_stats(void)
 ;	---------------------------------
 ; Function init_player_stats
 ; ---------------------------------
 _init_player_stats::
-;main.c:1029: init_character_stats(&player_stats,
+;main.c:1031: init_character_stats(&player_stats,
 	ld	hl, #0x03
 	push	hl
 	ld	hl, #0x505
@@ -3236,27 +3282,27 @@ _init_player_stats::
 	ld	a, #0x06
 	ld	de, #_player_stats
 	call	_init_character_stats
-;main.c:1035: }
+;main.c:1037: }
 	ret
-;main.c:1037: void init_character_stats(struct PlayerStats* stats,
+;main.c:1039: void init_character_stats(struct PlayerStats* stats,
 ;	---------------------------------
 ; Function init_character_stats
 ; ---------------------------------
 _init_character_stats::
-;main.c:1044: stats->max_health = max_health;
+;main.c:1046: stats->max_health = max_health;
 	ld	(de), a
-;main.c:1045: stats->current_health = max_health;
+;main.c:1047: stats->current_health = max_health;
 	ld	c, e
 	ld	b, d
 	inc	bc
 	ld	(bc), a
-;main.c:1046: stats->damage = damage;
+;main.c:1048: stats->damage = damage;
 	ld	c, e
 	ld	b, d
 	inc	bc
 	inc	bc
 	ldhl	sp,	#2
-;main.c:1047: stats->range = range;
+;main.c:1049: stats->range = range;
 	ld	a, (hl+)
 	ld	(bc), a
 	ld	c, e
@@ -3266,7 +3312,7 @@ _init_character_stats::
 	inc	bc
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1048: stats->speed = speed;
+;main.c:1050: stats->speed = speed;
 	ld	hl, #0x0004
 	add	hl, de
 	ld	c, l
@@ -3274,7 +3320,7 @@ _init_character_stats::
 	ldhl	sp,	#4
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1049: stats->invuln_timer = invuln_time;
+;main.c:1051: stats->invuln_timer = invuln_time;
 	ld	hl, #0x0005
 	add	hl, de
 	ld	c, l
@@ -3282,15 +3328,15 @@ _init_character_stats::
 	ldhl	sp,	#5
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1050: stats->is_dead = 0;
+;main.c:1052: stats->is_dead = 0;
 	ld	hl, #0x0006
 	add	hl, de
 	ld	(hl), #0x00
-;main.c:1051: }
+;main.c:1053: }
 	pop	hl
 	add	sp, #4
 	jp	(hl)
-;main.c:1053: void update_timers(struct GameCharacter* player, struct Weapon* weapon)
+;main.c:1055: void update_timers(struct GameCharacter* player, struct Weapon* weapon)
 ;	---------------------------------
 ; Function update_timers
 ; ---------------------------------
@@ -3304,7 +3350,7 @@ _update_timers::
 	ld	a, c
 	ld	(hl+), a
 	ld	(hl), b
-;main.c:1055: if(player_stats.invuln_timer > 0 && player_stats.is_dead == 0)
+;main.c:1057: if(player_stats.invuln_timer > 0 && player_stats.is_dead == 0)
 	ld	hl, #(_player_stats + 5)
 	ld	c, (hl)
 	ld	a, c
@@ -3313,12 +3359,12 @@ _update_timers::
 	ld	a, (#(_player_stats + 6) + 0)
 	or	a, a
 	jr	NZ, 00102$
-;main.c:1057: player_stats.invuln_timer--;
+;main.c:1059: player_stats.invuln_timer--;
 	dec	c
 	ld	hl, #(_player_stats + 5)
 	ld	(hl), c
 00102$:
-;main.c:1062: player->x += knockback_dx;
+;main.c:1064: player->x += knockback_dx;
 	ldhl	sp,#12
 	ld	a, (hl+)
 	ld	e, a
@@ -3328,7 +3374,7 @@ _update_timers::
 	inc	sp
 	inc	sp
 	push	hl
-;main.c:1063: player->y += knockback_dy;
+;main.c:1065: player->y += knockback_dy;
 	ldhl	sp,#12
 	ld	a, (hl+)
 	ld	e, a
@@ -3343,7 +3389,7 @@ _update_timers::
 	ld	a, h
 	ldhl	sp,	#3
 	ld	(hl), a
-;main.c:1088: weapon->x += knockback_dx;
+;main.c:1090: weapon->x += knockback_dx;
 	ldhl	sp,#10
 	ld	a, (hl+)
 	ld	e, a
@@ -3358,7 +3404,7 @@ _update_timers::
 	ld	a, h
 	ldhl	sp,	#5
 	ld	(hl), a
-;main.c:1089: weapon->y += knockback_dy;
+;main.c:1091: weapon->y += knockback_dy;
 	ldhl	sp,#10
 	ld	a, (hl+)
 	ld	e, a
@@ -3373,14 +3419,14 @@ _update_timers::
 	ld	a, h
 	ldhl	sp,	#7
 	ld	(hl), a
-;main.c:1060: if(knockback_timer > 0 && player_stats.is_dead == 0)
+;main.c:1062: if(knockback_timer > 0 && player_stats.is_dead == 0)
 	ld	a, (#_knockback_timer)
 	or	a, a
 	jp	Z, 00116$
 	ld	a, (#(_player_stats + 6) + 0)
 	or	a, a
 	jp	NZ, 00116$
-;main.c:1062: player->x += knockback_dx;
+;main.c:1064: player->x += knockback_dx;
 	pop	de
 	push	de
 	ld	a, (de)
@@ -3389,7 +3435,7 @@ _update_timers::
 	pop	hl
 	push	hl
 	ld	(hl), a
-;main.c:1063: player->y += knockback_dy;
+;main.c:1065: player->y += knockback_dy;
 	ldhl	sp,#2
 	ld	a, (hl+)
 	ld	e, a
@@ -3403,29 +3449,29 @@ _update_timers::
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:1065: if(player->x < MIN_GIRL_X)
+;main.c:1067: if(player->x < MIN_GIRL_X)
 	pop	de
 	push	de
 	ld	a, (de)
 	sub	a, #0x17
 	jr	NC, 00105$
-;main.c:1067: player->x = MIN_GIRL_X;
+;main.c:1069: player->x = MIN_GIRL_X;
 	pop	hl
 	ld	(hl), #0x17
 	push	hl
 00105$:
-;main.c:1069: if(player->x > MAX_GIRL_X)
+;main.c:1071: if(player->x > MAX_GIRL_X)
 	pop	de
 	push	de
 	ld	a, (de)
 	cp	a, #0x8b
 	jr	C, 00107$
-;main.c:1071: player->x = MAX_GIRL_X;
+;main.c:1073: player->x = MAX_GIRL_X;
 	pop	hl
 	ld	(hl), #0x8a
 	push	hl
 00107$:
-;main.c:1073: if(player->y < MIN_GIRL_Y)
+;main.c:1075: if(player->y < MIN_GIRL_Y)
 	ldhl	sp,#2
 	ld	a, (hl+)
 	ld	e, a
@@ -3433,13 +3479,13 @@ _update_timers::
 	ld	a, (de)
 	sub	a, #0x14
 	jr	NC, 00109$
-;main.c:1075: player->y = MIN_GIRL_Y;
+;main.c:1077: player->y = MIN_GIRL_Y;
 	ld	a, (hl-)
 	ld	l, (hl)
 	ld	h, a
 	ld	(hl), #0x14
 00109$:
-;main.c:1077: if(player->y > MAX_GIRL_Y)
+;main.c:1079: if(player->y > MAX_GIRL_Y)
 	ldhl	sp,#2
 	ld	a, (hl+)
 	ld	e, a
@@ -3447,17 +3493,17 @@ _update_timers::
 	ld	a, (de)
 	cp	a, #0x72
 	jr	C, 00111$
-;main.c:1079: player->y = MAX_GIRL_Y;
+;main.c:1081: player->y = MAX_GIRL_Y;
 	ld	a, (hl-)
 	ld	l, (hl)
 	ld	h, a
 	ld	(hl), #0x71
 00111$:
-;main.c:1082: if(locktimer == 0)
+;main.c:1084: if(locktimer == 0)
 	ld	a, (#_locktimer)
 	or	a, a
 	jr	NZ, 00113$
-;main.c:1084: move_weapon(weapon, player);
+;main.c:1086: move_weapon(weapon, player);
 	ldhl	sp,	#12
 	ld	a, (hl+)
 	ld	c, a
@@ -3469,7 +3515,7 @@ _update_timers::
 	call	_move_weapon
 	jr	00114$
 00113$:
-;main.c:1088: weapon->x += knockback_dx;
+;main.c:1090: weapon->x += knockback_dx;
 	ldhl	sp,#4
 	ld	a, (hl+)
 	ld	e, a
@@ -3483,7 +3529,7 @@ _update_timers::
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:1089: weapon->y += knockback_dy;
+;main.c:1091: weapon->y += knockback_dy;
 	ldhl	sp,#6
 	ld	a, (hl+)
 	ld	e, a
@@ -3497,46 +3543,46 @@ _update_timers::
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:1090: move_sword_sprites_from_position(weapon);
+;main.c:1092: move_sword_sprites_from_position(weapon);
 	ldhl	sp,	#10
 	ld	a, (hl+)
 	ld	e, a
 	ld	d, (hl)
 	call	_move_sword_sprites_from_position
 00114$:
-;main.c:1093: knockback_timer--;
+;main.c:1095: knockback_timer--;
 	ld	hl, #_knockback_timer
 	dec	(hl)
 00116$:
-;main.c:1096: if(locktimer > 0)
+;main.c:1098: if(locktimer > 0)
 	ld	a, (#_locktimer)
 	or	a, a
 	jp	Z, 00168$
-;main.c:1098: UINT8 lunge_offset = SWORD_LUNGE_MAX_OFFSET;
+;main.c:1100: UINT8 lunge_offset = SWORD_LUNGE_MAX_OFFSET;
 	ldhl	sp,	#8
 	ld	(hl), #0x08
-;main.c:1100: if(locktimer == 1)
+;main.c:1102: if(locktimer == 1)
 	ld	a, (#_locktimer)
 	dec	a
 	jr	NZ, 00121$
-;main.c:1102: lunge_offset = 3;
+;main.c:1104: lunge_offset = 3;
 	ldhl	sp,	#8
 	ld	(hl), #0x03
 	jr	00122$
 00121$:
-;main.c:1104: else if(locktimer == 2)
+;main.c:1106: else if(locktimer == 2)
 	ld	a, (#_locktimer)
 	sub	a, #0x02
 	jr	NZ, 00122$
-;main.c:1106: lunge_offset = 6;
+;main.c:1108: lunge_offset = 6;
 	ldhl	sp,	#8
 	ld	(hl), #0x06
 00122$:
-;main.c:1109: if(direction == 2)
+;main.c:1111: if(direction == 2)
 	ld	a, (#_direction)
 	sub	a, #0x02
 	jr	NZ, 00150$
-;main.c:1111: if(player->x > MIN_GIRL_X)
+;main.c:1113: if(player->x > MIN_GIRL_X)
 	pop	de
 	push	de
 	ld	a, (de)
@@ -3545,19 +3591,19 @@ _update_timers::
 	ld	a, #0x17
 	sub	a, (hl)
 	jp	NC, 00151$
-;main.c:1113: UINT8 distance_to_min_x = player->x - MIN_GIRL_X;
+;main.c:1115: UINT8 distance_to_min_x = player->x - MIN_GIRL_X;
 	ld	a, (hl)
 	add	a, #0xe9
-;main.c:1114: if(distance_to_min_x <= PLAYER_LUNGE_STEP)
+;main.c:1116: if(distance_to_min_x <= PLAYER_LUNGE_STEP)
 	cp	a, #0x04
 	jr	NC, 00124$
-;main.c:1116: player->x = MIN_GIRL_X;
+;main.c:1118: player->x = MIN_GIRL_X;
 	pop	hl
 	ld	(hl), #0x17
 	push	hl
 	jr	00151$
 00124$:
-;main.c:1120: player->x -= PLAYER_LUNGE_STEP;
+;main.c:1122: player->x -= PLAYER_LUNGE_STEP;
 	ldhl	sp,	#9
 	ld	a, (hl)
 	add	a, #0xfd
@@ -3566,30 +3612,30 @@ _update_timers::
 	ld	(hl), a
 	jr	00151$
 00150$:
-;main.c:1124: else if(direction == 3)
+;main.c:1126: else if(direction == 3)
 	ld	a, (#_direction)
 	sub	a, #0x03
 	jr	NZ, 00147$
-;main.c:1126: if(player->x < MAX_GIRL_X)
+;main.c:1128: if(player->x < MAX_GIRL_X)
 	pop	de
 	push	de
 	ld	a, (de)
 	cp	a, #0x8a
 	jr	NC, 00151$
-;main.c:1128: UINT8 distance_to_max_x = MAX_GIRL_X - player->x;
+;main.c:1130: UINT8 distance_to_max_x = MAX_GIRL_X - player->x;
 	ld	c, a
 	ld	a, #0x8a
 	sub	a, c
-;main.c:1129: if(distance_to_max_x <= PLAYER_LUNGE_STEP)
+;main.c:1131: if(distance_to_max_x <= PLAYER_LUNGE_STEP)
 	cp	a, #0x04
 	jr	NC, 00129$
-;main.c:1131: player->x = MAX_GIRL_X;
+;main.c:1133: player->x = MAX_GIRL_X;
 	pop	hl
 	ld	(hl), #0x8a
 	push	hl
 	jr	00151$
 00129$:
-;main.c:1135: player->x += PLAYER_LUNGE_STEP;
+;main.c:1137: player->x += PLAYER_LUNGE_STEP;
 	inc	c
 	inc	c
 	inc	c
@@ -3598,30 +3644,30 @@ _update_timers::
 	ld	(hl), c
 	jr	00151$
 00147$:
-;main.c:1063: player->y += knockback_dy;
+;main.c:1065: player->y += knockback_dy;
 	ldhl	sp,#2
 	ld	a, (hl+)
 	ld	e, a
 	ld	d, (hl)
 	ld	a, (de)
 	ld	b, a
-;main.c:1143: UINT8 distance_to_min_y = player->y - MIN_GIRL_Y;
+;main.c:1145: UINT8 distance_to_min_y = player->y - MIN_GIRL_Y;
 	ld	c, b
-;main.c:1139: else if(direction == 1)
+;main.c:1141: else if(direction == 1)
 	ld	a, (#_direction)
 	dec	a
 	jr	NZ, 00144$
-;main.c:1141: if(player->y > MIN_GIRL_Y)
+;main.c:1143: if(player->y > MIN_GIRL_Y)
 	ld	a, #0x14
 	sub	a, b
 	jr	NC, 00151$
-;main.c:1143: UINT8 distance_to_min_y = player->y - MIN_GIRL_Y;
+;main.c:1145: UINT8 distance_to_min_y = player->y - MIN_GIRL_Y;
 	ld	a, c
 	add	a, #0xec
-;main.c:1144: if(distance_to_min_y <= PLAYER_LUNGE_STEP)
+;main.c:1146: if(distance_to_min_y <= PLAYER_LUNGE_STEP)
 	cp	a, #0x04
 	jr	NC, 00134$
-;main.c:1146: player->y = MIN_GIRL_Y;
+;main.c:1148: player->y = MIN_GIRL_Y;
 	ldhl	sp,	#2
 	ld	a, (hl+)
 	ld	h, (hl)
@@ -3629,7 +3675,7 @@ _update_timers::
 	ld	(hl), #0x14
 	jr	00151$
 00134$:
-;main.c:1150: player->y -= PLAYER_LUNGE_STEP;
+;main.c:1152: player->y -= PLAYER_LUNGE_STEP;
 	ld	a, c
 	add	a, #0xfd
 	ldhl	sp,	#2
@@ -3640,17 +3686,17 @@ _update_timers::
 	ld	(hl), a
 	jr	00151$
 00144$:
-;main.c:1156: if(player->y < MAX_GIRL_Y)
+;main.c:1158: if(player->y < MAX_GIRL_Y)
 	ld	a, b
 	sub	a, #0x71
 	jr	NC, 00151$
-;main.c:1158: UINT8 distance_to_max_y = MAX_GIRL_Y - player->y;
+;main.c:1160: UINT8 distance_to_max_y = MAX_GIRL_Y - player->y;
 	ld	a, #0x71
 	sub	a, c
-;main.c:1159: if(distance_to_max_y <= PLAYER_LUNGE_STEP)
+;main.c:1161: if(distance_to_max_y <= PLAYER_LUNGE_STEP)
 	cp	a, #0x04
 	jr	NC, 00139$
-;main.c:1161: player->y = MAX_GIRL_Y;
+;main.c:1163: player->y = MAX_GIRL_Y;
 	ldhl	sp,	#2
 	ld	a, (hl+)
 	ld	h, (hl)
@@ -3658,7 +3704,7 @@ _update_timers::
 	ld	(hl), #0x71
 	jr	00151$
 00139$:
-;main.c:1165: player->y += PLAYER_LUNGE_STEP;
+;main.c:1167: player->y += PLAYER_LUNGE_STEP;
 	inc	c
 	inc	c
 	inc	c
@@ -3668,7 +3714,7 @@ _update_timers::
 	ld	l, a
 	ld	(hl), c
 00151$:
-;main.c:1170: move_weapon(weapon, player);
+;main.c:1172: move_weapon(weapon, player);
 	ldhl	sp,	#12
 	ld	a, (hl+)
 	ld	c, a
@@ -3678,11 +3724,11 @@ _update_timers::
 	ld	e, a
 	ld	d, (hl)
 	call	_move_weapon
-;main.c:1172: if(direction == 2)
+;main.c:1174: if(direction == 2)
 	ld	a, (#_direction)
 	sub	a, #0x02
 	jr	NZ, 00159$
-;main.c:1174: weapon->x -= lunge_offset;
+;main.c:1176: weapon->x -= lunge_offset;
 	ldhl	sp,#4
 	ld	a, (hl+)
 	ld	e, a
@@ -3698,11 +3744,11 @@ _update_timers::
 	ld	(hl), a
 	jr	00160$
 00159$:
-;main.c:1176: else if(direction == 3)
+;main.c:1178: else if(direction == 3)
 	ld	a, (#_direction)
 	sub	a, #0x03
 	jr	NZ, 00156$
-;main.c:1178: weapon->x += lunge_offset;
+;main.c:1180: weapon->x += lunge_offset;
 	ldhl	sp,#4
 	ld	a, (hl+)
 	ld	e, a
@@ -3718,18 +3764,18 @@ _update_timers::
 	ld	(hl), a
 	jr	00160$
 00156$:
-;main.c:1089: weapon->y += knockback_dy;
+;main.c:1091: weapon->y += knockback_dy;
 	ldhl	sp,#6
 	ld	a, (hl+)
 	ld	e, a
 	ld	d, (hl)
 	ld	a, (de)
 	ld	c, a
-;main.c:1180: else if(direction == 1)
+;main.c:1182: else if(direction == 1)
 	ld	a, (#_direction)
 	dec	a
 	jr	NZ, 00153$
-;main.c:1182: weapon->y -= lunge_offset;
+;main.c:1184: weapon->y -= lunge_offset;
 	ld	a, c
 	ldhl	sp,	#8
 	sub	a, (hl)
@@ -3742,7 +3788,7 @@ _update_timers::
 	ld	(hl), a
 	jr	00160$
 00153$:
-;main.c:1186: weapon->y += lunge_offset;
+;main.c:1188: weapon->y += lunge_offset;
 	ld	a, c
 	ldhl	sp,	#8
 	add	a, (hl)
@@ -3754,13 +3800,13 @@ _update_timers::
 	ld	l, e
 	ld	(hl), a
 00160$:
-;main.c:1189: move_sword_sprites_from_position(weapon);
+;main.c:1191: move_sword_sprites_from_position(weapon);
 	ldhl	sp,	#10
 	ld	a, (hl+)
 	ld	e, a
 	ld	d, (hl)
 	call	_move_sword_sprites_from_position
-;main.c:1191: UINT8 max_check = (current_enemy_count > MAX_ENEMIES) ? MAX_ENEMIES : current_enemy_count;
+;main.c:1193: UINT8 max_check = (current_enemy_count > MAX_ENEMIES) ? MAX_ENEMIES : current_enemy_count;
 	ld	a, #0x0a
 	ld	hl, #_current_enemy_count
 	sub	a, (hl)
@@ -3772,7 +3818,7 @@ _update_timers::
 00187$:
 	ldhl	sp,	#6
 	ld	(hl), a
-;main.c:1192: for(UINT8 i = 0; i < max_check; i++)
+;main.c:1194: for(UINT8 i = 0; i < max_check; i++)
 	ldhl	sp,	#9
 	ld	(hl), #0x00
 00182$:
@@ -3781,7 +3827,7 @@ _update_timers::
 	ldhl	sp,	#6
 	sub	a, (hl)
 	jr	NC, 00163$
-;main.c:1195: if(enemies[i].death == 0)
+;main.c:1197: if(enemies[i].death == 0)
 	ldhl	sp,	#9
 	ld	c, (hl)
 	ld	b, #0x00
@@ -3812,7 +3858,7 @@ _update_timers::
 	ld	a, (bc)
 	or	a, a
 	jr	NZ, 00183$
-;main.c:1197: weapon_enemy_collision(weapon, &enemies[i], i);
+;main.c:1199: weapon_enemy_collision(weapon, &enemies[i], i);
 	ldhl	sp,	#9
 	ld	a, (hl-)
 	dec	hl
@@ -3828,19 +3874,19 @@ _update_timers::
 	ld	d, (hl)
 	call	_weapon_enemy_collision
 00183$:
-;main.c:1192: for(UINT8 i = 0; i < max_check; i++)
+;main.c:1194: for(UINT8 i = 0; i < max_check; i++)
 	ldhl	sp,	#9
 	inc	(hl)
 	jr	00182$
 00163$:
-;main.c:1201: if(locktimer >= SWORD_LUNGE_FRAMES)
+;main.c:1203: if(locktimer >= SWORD_LUNGE_FRAMES)
 	ld	hl, #_locktimer
 	ld	a, (hl)
 	sub	a, #0x03
 	jr	C, 00165$
-;main.c:1203: locktimer = 0;
+;main.c:1205: locktimer = 0;
 	ld	(hl), #0x00
-;main.c:1204: swordreset(player, weapon);
+;main.c:1206: swordreset(player, weapon);
 	ldhl	sp,	#10
 	ld	a, (hl+)
 	ld	c, a
@@ -3852,15 +3898,15 @@ _update_timers::
 	call	_swordreset
 	jr	00168$
 00165$:
-;main.c:1208: locktimer++;
+;main.c:1210: locktimer++;
 	ld	hl, #_locktimer
 	inc	(hl)
 00168$:
-;main.c:1212: if(player_stats.is_dead == 1)
+;main.c:1214: if(player_stats.is_dead == 1)
 	ld	a, (#(_player_stats + 6) + 0)
 	dec	a
 	jr	NZ, 00176$
-;main.c:1214: hide_character_sprites(player);
+;main.c:1216: hide_character_sprites(player);
 	ldhl	sp,	#12
 	ld	a, (hl+)
 	ld	e, a
@@ -3868,15 +3914,15 @@ _update_timers::
 	call	_hide_character_sprites
 	jr	00177$
 00176$:
-;main.c:1055: if(player_stats.invuln_timer > 0 && player_stats.is_dead == 0)
+;main.c:1057: if(player_stats.invuln_timer > 0 && player_stats.is_dead == 0)
 	ld	a, (#(_player_stats + 5) + 0)
-;main.c:1216: else if(player_stats.invuln_timer > 0)
+;main.c:1218: else if(player_stats.invuln_timer > 0)
 	or	a, a
 	jr	Z, 00173$
-;main.c:1218: if(player_stats.invuln_timer % INVULN_FLASH_PERIOD == 0)
+;main.c:1220: if(player_stats.invuln_timer % INVULN_FLASH_PERIOD == 0)
 	and	a, #0x01
 	jr	NZ, 00170$
-;main.c:1220: hide_character_sprites(player);
+;main.c:1222: hide_character_sprites(player);
 	ldhl	sp,	#12
 	ld	a, (hl+)
 	ld	e, a
@@ -3884,7 +3930,7 @@ _update_timers::
 	call	_hide_character_sprites
 	jr	00177$
 00170$:
-;main.c:1224: move_player(player, player->x, player->y);
+;main.c:1226: move_player(player, player->x, player->y);
 	ldhl	sp,#2
 	ld	a, (hl+)
 	ld	e, a
@@ -3903,7 +3949,7 @@ _update_timers::
 	call	_move_player
 	jr	00177$
 00173$:
-;main.c:1229: move_player(player, player->x, player->y);
+;main.c:1231: move_player(player, player->x, player->y);
 	ldhl	sp,#2
 	ld	a, (hl+)
 	ld	e, a
@@ -3921,14 +3967,14 @@ _update_timers::
 	ld	d, (hl)
 	call	_move_player
 00177$:
-;main.c:1232: if(player_stats.is_dead == 0 && locktimer == 0)
+;main.c:1234: if(player_stats.is_dead == 0 && locktimer == 0)
 	ld	a, (#(_player_stats + 6) + 0)
 	or	a, a
 	jr	NZ, 00184$
 	ld	a, (#_locktimer)
 	or	a, a
 	jr	NZ, 00184$
-;main.c:1234: move_weapon(weapon, player);
+;main.c:1236: move_weapon(weapon, player);
 	ldhl	sp,	#12
 	ld	a, (hl+)
 	ld	c, a
@@ -3939,10 +3985,10 @@ _update_timers::
 	ld	d, (hl)
 	call	_move_weapon
 00184$:
-;main.c:1236: }
+;main.c:1238: }
 	add	sp, #14
 	ret
-;main.c:1238: void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y, UINT8 type)
+;main.c:1240: void setup_enemy(struct Enemy* enemy, UINT8 oam_slot, UINT8 x, UINT8 y, UINT8 type)
 ;	---------------------------------
 ; Function setup_enemy
 ; ---------------------------------
@@ -3952,7 +3998,7 @@ _setup_enemy::
 	ld	b, d
 	ldhl	sp,	#18
 	ld	(hl), a
-;main.c:1240: enemy->type = type;
+;main.c:1242: enemy->type = type;
 	ld	hl, #0x000d
 	add	hl, bc
 	ld	e, l
@@ -3960,7 +4006,7 @@ _setup_enemy::
 	ldhl	sp,	#23
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1241: enemy->x = x;
+;main.c:1243: enemy->x = x;
 	ld	hl, #0x0004
 	add	hl, bc
 	ld	e, l
@@ -3968,7 +4014,7 @@ _setup_enemy::
 	ldhl	sp,	#21
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1242: enemy->y = y;
+;main.c:1244: enemy->y = y;
 	ld	hl, #0x0005
 	add	hl, bc
 	ld	e, l
@@ -3976,30 +4022,30 @@ _setup_enemy::
 	ldhl	sp,	#22
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1243: enemy->anim = 0;
+;main.c:1245: enemy->anim = 0;
 	ld	hl, #0x0008
 	add	hl, bc
 	ld	(hl), #0x00
-;main.c:1244: enemy->death = 0;
+;main.c:1246: enemy->death = 0;
 	ld	hl, #0x0009
 	add	hl, bc
 	ld	(hl), #0x00
-;main.c:1245: enemy->move_timer = 0;  // Initialize movement timer
+;main.c:1247: enemy->move_timer = 0;  // Initialize movement timer
 	ld	hl, #0x000c
 	add	hl, bc
 	ld	(hl), #0x00
-;main.c:1249: enemy->width = 8;
+;main.c:1251: enemy->width = 8;
 	ld	hl, #0x0006
 	add	hl, bc
 	ld	e, l
 	ld	d, h
-;main.c:1250: enemy->height = 8;
+;main.c:1252: enemy->height = 8;
 	ld	hl, #0x0007
 	add	hl, bc
 	inc	sp
 	inc	sp
 	push	hl
-;main.c:1252: enemy->max_health = SLIME_BASE_HP * enemy_hp_multiplier;
+;main.c:1254: enemy->max_health = SLIME_BASE_HP * enemy_hp_multiplier;
 	ld	hl, #0x000a
 	add	hl, bc
 	push	hl
@@ -4010,7 +4056,7 @@ _setup_enemy::
 	ld	a, h
 	ldhl	sp,	#3
 	ld	(hl), a
-;main.c:1253: enemy->current_health = enemy->max_health;
+;main.c:1255: enemy->current_health = enemy->max_health;
 	ld	hl, #0x000b
 	add	hl, bc
 	push	hl
@@ -4021,7 +4067,7 @@ _setup_enemy::
 	ld	a, h
 	ldhl	sp,	#5
 	ld	(hl), a
-;main.c:1254: enemy->spawn_timer = 0;  // Slimes don't spawn others
+;main.c:1256: enemy->spawn_timer = 0;  // Slimes don't spawn others
 	ld	hl, #0x000e
 	add	hl, bc
 	push	hl
@@ -4032,7 +4078,7 @@ _setup_enemy::
 	ld	a, h
 	ldhl	sp,	#7
 	ld	(hl), a
-;main.c:1255: enemy->attack_timer = 0;
+;main.c:1257: enemy->attack_timer = 0;
 	ld	hl, #0x000f
 	add	hl, bc
 	push	hl
@@ -4043,7 +4089,7 @@ _setup_enemy::
 	ld	a, h
 	ldhl	sp,	#9
 	ld	(hl), a
-;main.c:1256: enemy->attack_anim_frame = 0;
+;main.c:1258: enemy->attack_anim_frame = 0;
 	ld	hl, #0x0010
 	add	hl, bc
 	push	hl
@@ -4054,7 +4100,7 @@ _setup_enemy::
 	ld	a, h
 	ldhl	sp,	#11
 	ld	(hl), a
-;main.c:1257: enemy->jump_timer = SLIME_JUMP_COOLDOWN;  // Initialize jump timer
+;main.c:1259: enemy->jump_timer = SLIME_JUMP_COOLDOWN   + (rand() % 5);  // Initialize jump timer
 	ld	hl, #0x0011
 	add	hl, bc
 	push	hl
@@ -4065,7 +4111,7 @@ _setup_enemy::
 	ld	a, h
 	ldhl	sp,	#13
 	ld	(hl), a
-;main.c:1258: enemy->jump_target_x = x;
+;main.c:1260: enemy->jump_target_x = x;
 	ld	hl, #0x0012
 	add	hl, bc
 	push	hl
@@ -4076,7 +4122,7 @@ _setup_enemy::
 	ld	a, h
 	ldhl	sp,	#15
 	ld	(hl), a
-;main.c:1259: enemy->jump_target_y = y;
+;main.c:1261: enemy->jump_target_y = y;
 	ld	hl, #0x0013
 	add	hl, bc
 	push	hl
@@ -4087,19 +4133,19 @@ _setup_enemy::
 	ld	a, h
 	ldhl	sp,	#17
 	ld	(hl), a
-;main.c:1247: if(type == ENEMY_TYPE_SLIME)
+;main.c:1249: if(type == ENEMY_TYPE_SLIME)
 	ldhl	sp,	#23
 	ld	a, (hl)
 	or	a, a
 	jp	NZ, 00105$
-;main.c:1249: enemy->width = 8;
+;main.c:1251: enemy->width = 8;
 	ld	a, #0x08
 	ld	(de), a
-;main.c:1250: enemy->height = 8;
+;main.c:1252: enemy->height = 8;
 	pop	hl
 	ld	(hl), #0x08
 	push	hl
-;main.c:1252: enemy->max_health = SLIME_BASE_HP * enemy_hp_multiplier;
+;main.c:1254: enemy->max_health = SLIME_BASE_HP * enemy_hp_multiplier;
 	ld	a, (_enemy_hp_multiplier)
 	ld	e, a
 	add	a, a
@@ -4112,38 +4158,47 @@ _setup_enemy::
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:1253: enemy->current_health = enemy->max_health;
+;main.c:1255: enemy->current_health = enemy->max_health;
 	ldhl	sp,	#4
 	ld	e, (hl)
 	inc	hl
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:1254: enemy->spawn_timer = 0;  // Slimes don't spawn others
+;main.c:1256: enemy->spawn_timer = 0;  // Slimes don't spawn others
 	ldhl	sp,	#6
 	ld	a, (hl+)
 	ld	h, (hl)
 	ld	l, a
 	ld	(hl), #0x00
-;main.c:1255: enemy->attack_timer = 0;
+;main.c:1257: enemy->attack_timer = 0;
 	ldhl	sp,	#8
 	ld	a, (hl+)
 	ld	h, (hl)
 	ld	l, a
 	ld	(hl), #0x00
-;main.c:1256: enemy->attack_anim_frame = 0;
+;main.c:1258: enemy->attack_anim_frame = 0;
 	ldhl	sp,	#10
 	ld	a, (hl+)
 	ld	h, (hl)
 	ld	l, a
 	ld	(hl), #0x00
-;main.c:1257: enemy->jump_timer = SLIME_JUMP_COOLDOWN;  // Initialize jump timer
+;main.c:1259: enemy->jump_timer = SLIME_JUMP_COOLDOWN   + (rand() % 5);  // Initialize jump timer
+	call	_rand
+	ld	a, e
+	push	bc
+	ld	e, #0x05
+	call	__moduchar
+	ld	a, c
+	pop	bc
+	add	a, #0x14
 	ldhl	sp,	#12
-	ld	a, (hl+)
+	ld	e, (hl)
+	inc	hl
 	ld	h, (hl)
-	ld	l, a
-	ld	(hl), #0x14
-;main.c:1258: enemy->jump_target_x = x;
+	ld	l, e
+	ld	(hl), a
+;main.c:1260: enemy->jump_target_x = x;
 	ldhl	sp,	#14
 	ld	a, (hl+)
 	ld	e, a
@@ -4151,7 +4206,7 @@ _setup_enemy::
 	ldhl	sp,	#21
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1259: enemy->jump_target_y = y;
+;main.c:1261: enemy->jump_target_y = y;
 	ldhl	sp,	#16
 	ld	a, (hl+)
 	ld	e, a
@@ -4178,22 +4233,22 @@ _setup_enemy::
 	inc	hl
 	inc	hl
 	ld	(hl), #0x10
-;main.c:1264: enemy->spritids[0] = oam_slot;
+;main.c:1266: enemy->spritids[0] = oam_slot;
 	ldhl	sp,	#18
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1267: enemy->spritids[1] = 0xFF;
+;main.c:1269: enemy->spritids[1] = 0xFF;
 	ld	l, c
 	ld	h, b
 	inc	hl
 	ld	(hl), #0xff
-;main.c:1268: enemy->spritids[2] = 0xFF;
+;main.c:1270: enemy->spritids[2] = 0xFF;
 	ld	l, c
 	ld	h, b
 	inc	hl
 	inc	hl
 	ld	(hl), #0xff
-;main.c:1269: enemy->spritids[3] = 0xFF;
+;main.c:1271: enemy->spritids[3] = 0xFF;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -4202,19 +4257,19 @@ _setup_enemy::
 	ld	(hl), #0xff
 	jp	00106$
 00105$:
-;main.c:1271: else if(type == ENEMY_TYPE_BOSS)
+;main.c:1273: else if(type == ENEMY_TYPE_BOSS)
 	ldhl	sp,	#23
 	ld	a, (hl)
 	dec	a
 	jp	NZ, 00106$
-;main.c:1273: enemy->width = 16;
+;main.c:1275: enemy->width = 16;
 	ld	a, #0x10
 	ld	(de), a
-;main.c:1274: enemy->height = 16;
+;main.c:1276: enemy->height = 16;
 	pop	hl
 	ld	(hl), #0x10
 	push	hl
-;main.c:1276: enemy->max_health = BOSS_BASE_HP * enemy_hp_multiplier;
+;main.c:1278: enemy->max_health = BOSS_BASE_HP * enemy_hp_multiplier;
 	ld	a, (_enemy_hp_multiplier)
 	ld	e, a
 	add	a, a
@@ -4231,14 +4286,14 @@ _setup_enemy::
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:1277: enemy->current_health = enemy->max_health;
+;main.c:1279: enemy->current_health = enemy->max_health;
 	ldhl	sp,	#4
 	ld	e, (hl)
 	inc	hl
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:1280: enemy->spawn_timer = BOSS_SPAWN_MIN_FRAMES + (rand() % (BOSS_SPAWN_MAX_FRAMES - BOSS_SPAWN_MIN_FRAMES + 1));
+;main.c:1282: enemy->spawn_timer = BOSS_SPAWN_MIN_FRAMES + (rand() % (BOSS_SPAWN_MAX_FRAMES - BOSS_SPAWN_MIN_FRAMES + 1));
 	call	_rand
 	ld	a, e
 	push	bc
@@ -4253,25 +4308,25 @@ _setup_enemy::
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:1283: enemy->attack_timer = BOSS_ATTACK_COOLDOWN;
+;main.c:1285: enemy->attack_timer = BOSS_ATTACK_COOLDOWN;
 	ldhl	sp,	#8
 	ld	a, (hl+)
 	ld	h, (hl)
 	ld	l, a
 	ld	(hl), #0x3c
-;main.c:1284: enemy->attack_anim_frame = 0;
+;main.c:1286: enemy->attack_anim_frame = 0;
 	ldhl	sp,	#10
 	ld	a, (hl+)
 	ld	h, (hl)
 	ld	l, a
 	ld	(hl), #0x00
-;main.c:1285: enemy->jump_timer = 0;
+;main.c:1287: enemy->jump_timer = 0;
 	ldhl	sp,	#12
 	ld	a, (hl+)
 	ld	h, (hl)
 	ld	l, a
 	ld	(hl), #0x00
-;main.c:1286: enemy->jump_target_x = x;
+;main.c:1288: enemy->jump_target_x = x;
 	ldhl	sp,	#14
 	ld	a, (hl+)
 	ld	e, a
@@ -4279,7 +4334,7 @@ _setup_enemy::
 	ldhl	sp,	#21
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1287: enemy->jump_target_y = y;
+;main.c:1289: enemy->jump_target_y = y;
 	ldhl	sp,	#16
 	ld	a, (hl+)
 	ld	e, a
@@ -4287,10 +4342,10 @@ _setup_enemy::
 	ldhl	sp,	#22
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1290: for(UINT8 i = 0; i < 4; i++)
+;main.c:1292: for(UINT8 i = 0; i < 4; i++)
 	ld	e, #0x00
 00112$:
-;main.c:1292: set_sprite_tile(oam_slot + i, 22 + i);  // Boss tiles 22-25
+;main.c:1294: set_sprite_tile(oam_slot + i, 22 + i);  // Boss tiles 22-25
 	ld	a,e
 	cp	a,#0x04
 	jr	NC, 00106$
@@ -4335,7 +4390,7 @@ _setup_enemy::
 	inc	hl
 	pop	de
 	ld	(hl), #0x10
-;main.c:1294: enemy->spritids[i] = oam_slot + i;
+;main.c:1296: enemy->spritids[i] = oam_slot + i;
 	ld	l, e
 	ld	h, #0x00
 	add	hl, bc
@@ -4344,11 +4399,11 @@ _setup_enemy::
 	ld	a, (hl)
 	pop	hl
 	ld	(hl), a
-;main.c:1290: for(UINT8 i = 0; i < 4; i++)
+;main.c:1292: for(UINT8 i = 0; i < 4; i++)
 	inc	e
 	jr	00112$
 00106$:
-;main.c:1298: move_enemy_small(enemy, x, y);
+;main.c:1300: move_enemy_small(enemy, x, y);
 	ldhl	sp,	#22
 	ld	a, (hl-)
 	push	af
@@ -4357,20 +4412,20 @@ _setup_enemy::
 	ld	e, c
 	ld	d, b
 	call	_move_enemy_small
-;main.c:1299: }
+;main.c:1301: }
 	add	sp, #19
 	pop	hl
 	add	sp, #3
 	jp	(hl)
-;main.c:1302: void room_0(void)
+;main.c:1304: void room_0(void)
 ;	---------------------------------
 ; Function room_0
 ; ---------------------------------
 _room_0::
-;main.c:1304: current_enemy_count = 4;
+;main.c:1306: current_enemy_count = 4;
 	ld	hl, #_current_enemy_count
 	ld	(hl), #0x04
-;main.c:1305: setup_enemy(&enemies[0], 22, 26, 50, ENEMY_TYPE_SLIME);   // Left top
+;main.c:1307: setup_enemy(&enemies[0], 22, 26, 50, ENEMY_TYPE_SLIME);   // Left top
 	xor	a, a
 	ld	h, a
 	ld	l, #0x32
@@ -4381,7 +4436,7 @@ _room_0::
 	ld	a, #0x16
 	ld	de, #_enemies
 	call	_setup_enemy
-;main.c:1306: setup_enemy(&enemies[1], 23, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
+;main.c:1308: setup_enemy(&enemies[1], 23, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
 	xor	a, a
 	ld	h, a
 	ld	l, #0x46
@@ -4392,7 +4447,7 @@ _room_0::
 	ld	a, #0x17
 	ld	de, #(_enemies + 20)
 	call	_setup_enemy
-;main.c:1307: setup_enemy(&enemies[2], 24, 134, 50, ENEMY_TYPE_SLIME);  // Right top
+;main.c:1309: setup_enemy(&enemies[2], 24, 134, 50, ENEMY_TYPE_SLIME);  // Right top
 	xor	a, a
 	ld	h, a
 	ld	l, #0x32
@@ -4403,7 +4458,7 @@ _room_0::
 	ld	a, #0x18
 	ld	de, #(_enemies + 40)
 	call	_setup_enemy
-;main.c:1308: setup_enemy(&enemies[3], 25, 134, 70, ENEMY_TYPE_SLIME);  // Right bottom
+;main.c:1310: setup_enemy(&enemies[3], 25, 134, 70, ENEMY_TYPE_SLIME);  // Right bottom
 	xor	a, a
 	ld	h, a
 	ld	l, #0x46
@@ -4414,13 +4469,13 @@ _room_0::
 	ld	a, #0x19
 	ld	de, #(_enemies + 60)
 	call	_setup_enemy
-;main.c:1311: for(UINT8 i = 4; i < MAX_ENEMIES; i++)
+;main.c:1313: for(UINT8 i = 4; i < MAX_ENEMIES; i++)
 	ld	c, #0x04
 00103$:
 	ld	a, c
 	sub	a, #0x0a
 	jr	NC, 00101$
-;main.c:1313: enemies[i].death = 1;
+;main.c:1315: enemies[i].death = 1;
 	ld	b, #0x00
 	ld	l, c
 	ld	h, b
@@ -4438,43 +4493,43 @@ _room_0::
 	ld	hl, #0x0009
 	add	hl, de
 	ld	(hl), #0x01
-;main.c:1314: hide_enemy_sprites(&enemies[i]);
+;main.c:1316: hide_enemy_sprites(&enemies[i]);
 	push	bc
 	call	_hide_enemy_sprites
 	pop	bc
-;main.c:1311: for(UINT8 i = 4; i < MAX_ENEMIES; i++)
+;main.c:1313: for(UINT8 i = 4; i < MAX_ENEMIES; i++)
 	inc	c
 	jr	00103$
 00101$:
-;main.c:1317: enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
+;main.c:1319: enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
 	ld	hl, #_enemy_start_delay_timer
 	ld	(hl), #0x0f
-;main.c:1318: room_cleared = 0;
-;main.c:1319: reward_active = 0;
+;main.c:1320: room_cleared = 0;
+;main.c:1321: reward_active = 0;
 	xor	a, a
 	ld	(#_room_cleared), a
 	ld	(#_reward_active),a
-;main.c:1320: reward_claimed = 0;
-;main.c:1321: can_transition = 0;
+;main.c:1322: reward_claimed = 0;
+;main.c:1323: can_transition = 0;
 	xor	a, a
 	ld	(#_reward_claimed), a
 	ld	(#_can_transition),a
-;main.c:1322: room_clear_timer = 0;
-;main.c:1323: transition_cooldown_timer = 0;
+;main.c:1324: room_clear_timer = 0;
+;main.c:1325: transition_cooldown_timer = 0;
 	xor	a, a
 	ld	(#_room_clear_timer), a
 	ld	(#_transition_cooldown_timer),a
-;main.c:1324: }
+;main.c:1326: }
 	ret
-;main.c:1327: void room_1(void)
+;main.c:1329: void room_1(void)
 ;	---------------------------------
 ; Function room_1
 ; ---------------------------------
 _room_1::
-;main.c:1329: current_enemy_count = 6;
+;main.c:1331: current_enemy_count = 6;
 	ld	hl, #_current_enemy_count
 	ld	(hl), #0x06
-;main.c:1330: setup_enemy(&enemies[0], 22, 26, 50, ENEMY_TYPE_SLIME);   // Left top
+;main.c:1332: setup_enemy(&enemies[0], 22, 26, 50, ENEMY_TYPE_SLIME);   // Left top
 	xor	a, a
 	ld	h, a
 	ld	l, #0x32
@@ -4485,7 +4540,7 @@ _room_1::
 	ld	a, #0x16
 	ld	de, #_enemies
 	call	_setup_enemy
-;main.c:1331: setup_enemy(&enemies[1], 23, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
+;main.c:1333: setup_enemy(&enemies[1], 23, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
 	xor	a, a
 	ld	h, a
 	ld	l, #0x46
@@ -4496,7 +4551,7 @@ _room_1::
 	ld	a, #0x17
 	ld	de, #(_enemies + 20)
 	call	_setup_enemy
-;main.c:1332: setup_enemy(&enemies[2], 24, 26, 90, ENEMY_TYPE_SLIME);  // Right top
+;main.c:1334: setup_enemy(&enemies[2], 24, 26, 90, ENEMY_TYPE_SLIME);  // Right top
 	xor	a, a
 	ld	h, a
 	ld	l, #0x5a
@@ -4507,7 +4562,7 @@ _room_1::
 	ld	a, #0x18
 	ld	de, #(_enemies + 40)
 	call	_setup_enemy
-;main.c:1333: setup_enemy(&enemies[3], 25, 134, 50, ENEMY_TYPE_SLIME);  // Right bottom
+;main.c:1335: setup_enemy(&enemies[3], 25, 134, 50, ENEMY_TYPE_SLIME);  // Right bottom
 	xor	a, a
 	ld	h, a
 	ld	l, #0x32
@@ -4518,7 +4573,7 @@ _room_1::
 	ld	a, #0x19
 	ld	de, #(_enemies + 60)
 	call	_setup_enemy
-;main.c:1334: setup_enemy(&enemies[4], 26, 134, 70, ENEMY_TYPE_SLIME);  
+;main.c:1336: setup_enemy(&enemies[4], 26, 134, 70, ENEMY_TYPE_SLIME);  
 	xor	a, a
 	ld	h, a
 	ld	l, #0x46
@@ -4529,7 +4584,7 @@ _room_1::
 	ld	a, #0x1a
 	ld	de, #(_enemies + 80)
 	call	_setup_enemy
-;main.c:1335: setup_enemy(&enemies[5], 27, 134, 90, ENEMY_TYPE_SLIME);
+;main.c:1337: setup_enemy(&enemies[5], 27, 134, 90, ENEMY_TYPE_SLIME);
 	xor	a, a
 	ld	h, a
 	ld	l, #0x5a
@@ -4540,13 +4595,13 @@ _room_1::
 	ld	a, #0x1b
 	ld	de, #(_enemies + 100)
 	call	_setup_enemy
-;main.c:1338: for(UINT8 i = 6; i < MAX_ENEMIES; i++)
+;main.c:1340: for(UINT8 i = 6; i < MAX_ENEMIES; i++)
 	ld	c, #0x06
 00103$:
 	ld	a, c
 	sub	a, #0x0a
 	jr	NC, 00101$
-;main.c:1340: enemies[i].death = 1;
+;main.c:1342: enemies[i].death = 1;
 	ld	b, #0x00
 	ld	l, c
 	ld	h, b
@@ -4564,43 +4619,43 @@ _room_1::
 	ld	hl, #0x0009
 	add	hl, de
 	ld	(hl), #0x01
-;main.c:1341: hide_enemy_sprites(&enemies[i]);
+;main.c:1343: hide_enemy_sprites(&enemies[i]);
 	push	bc
 	call	_hide_enemy_sprites
 	pop	bc
-;main.c:1338: for(UINT8 i = 6; i < MAX_ENEMIES; i++)
+;main.c:1340: for(UINT8 i = 6; i < MAX_ENEMIES; i++)
 	inc	c
 	jr	00103$
 00101$:
-;main.c:1344: enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
+;main.c:1346: enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
 	ld	hl, #_enemy_start_delay_timer
 	ld	(hl), #0x0f
-;main.c:1345: room_cleared = 0;
-;main.c:1346: reward_active = 0;
+;main.c:1347: room_cleared = 0;
+;main.c:1348: reward_active = 0;
 	xor	a, a
 	ld	(#_room_cleared), a
 	ld	(#_reward_active),a
-;main.c:1347: reward_claimed = 0;
-;main.c:1348: can_transition = 0;
+;main.c:1349: reward_claimed = 0;
+;main.c:1350: can_transition = 0;
 	xor	a, a
 	ld	(#_reward_claimed), a
 	ld	(#_can_transition),a
-;main.c:1349: room_clear_timer = 0;
-;main.c:1350: transition_cooldown_timer = 0;
+;main.c:1351: room_clear_timer = 0;
+;main.c:1352: transition_cooldown_timer = 0;
 	xor	a, a
 	ld	(#_room_clear_timer), a
 	ld	(#_transition_cooldown_timer),a
-;main.c:1351: }
+;main.c:1353: }
 	ret
-;main.c:1353: void room_3(void)
+;main.c:1355: void room_3(void)
 ;	---------------------------------
 ; Function room_3
 ; ---------------------------------
 _room_3::
-;main.c:1355: current_enemy_count = 8;
+;main.c:1357: current_enemy_count = 8;
 	ld	hl, #_current_enemy_count
 	ld	(hl), #0x08
-;main.c:1356: setup_enemy(&enemies[0], 22, 26, 50, ENEMY_TYPE_SLIME);   // Left top
+;main.c:1358: setup_enemy(&enemies[0], 22, 26, 50, ENEMY_TYPE_SLIME);   // Left top
 	xor	a, a
 	ld	h, a
 	ld	l, #0x32
@@ -4611,7 +4666,7 @@ _room_3::
 	ld	a, #0x16
 	ld	de, #_enemies
 	call	_setup_enemy
-;main.c:1357: setup_enemy(&enemies[1], 23, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
+;main.c:1359: setup_enemy(&enemies[1], 23, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
 	xor	a, a
 	ld	h, a
 	ld	l, #0x46
@@ -4622,7 +4677,7 @@ _room_3::
 	ld	a, #0x17
 	ld	de, #(_enemies + 20)
 	call	_setup_enemy
-;main.c:1358: setup_enemy(&enemies[2], 24, 26, 90, ENEMY_TYPE_SLIME);  // Right top
+;main.c:1360: setup_enemy(&enemies[2], 24, 26, 90, ENEMY_TYPE_SLIME);  // Right top
 	xor	a, a
 	ld	h, a
 	ld	l, #0x5a
@@ -4633,7 +4688,7 @@ _room_3::
 	ld	a, #0x18
 	ld	de, #(_enemies + 40)
 	call	_setup_enemy
-;main.c:1359: setup_enemy(&enemies[3], 25, 134, 50, ENEMY_TYPE_SLIME);  // Right bottom
+;main.c:1361: setup_enemy(&enemies[3], 25, 134, 50, ENEMY_TYPE_SLIME);  // Right bottom
 	xor	a, a
 	ld	h, a
 	ld	l, #0x32
@@ -4644,7 +4699,7 @@ _room_3::
 	ld	a, #0x19
 	ld	de, #(_enemies + 60)
 	call	_setup_enemy
-;main.c:1360: setup_enemy(&enemies[4], 26, 134, 70, ENEMY_TYPE_SLIME);  
+;main.c:1362: setup_enemy(&enemies[4], 26, 134, 70, ENEMY_TYPE_SLIME);  
 	xor	a, a
 	ld	h, a
 	ld	l, #0x46
@@ -4655,7 +4710,7 @@ _room_3::
 	ld	a, #0x1a
 	ld	de, #(_enemies + 80)
 	call	_setup_enemy
-;main.c:1361: setup_enemy(&enemies[5], 27, 134, 90, ENEMY_TYPE_SLIME);
+;main.c:1363: setup_enemy(&enemies[5], 27, 134, 90, ENEMY_TYPE_SLIME);
 	xor	a, a
 	ld	h, a
 	ld	l, #0x5a
@@ -4666,7 +4721,7 @@ _room_3::
 	ld	a, #0x1b
 	ld	de, #(_enemies + 100)
 	call	_setup_enemy
-;main.c:1362: setup_enemy(&enemies[6], 28, 26, 110, ENEMY_TYPE_SLIME);  
+;main.c:1364: setup_enemy(&enemies[6], 28, 26, 110, ENEMY_TYPE_SLIME);  
 	xor	a, a
 	ld	h, a
 	ld	l, #0x6e
@@ -4677,7 +4732,7 @@ _room_3::
 	ld	a, #0x1c
 	ld	de, #(_enemies + 120)
 	call	_setup_enemy
-;main.c:1363: setup_enemy(&enemies[7], 29, 134, 110, ENEMY_TYPE_SLIME);
+;main.c:1365: setup_enemy(&enemies[7], 29, 134, 110, ENEMY_TYPE_SLIME);
 	xor	a, a
 	ld	h, a
 	ld	l, #0x6e
@@ -4688,13 +4743,13 @@ _room_3::
 	ld	a, #0x1d
 	ld	de, #(_enemies + 140)
 	call	_setup_enemy
-;main.c:1366: for(UINT8 i = 8; i < MAX_ENEMIES; i++)
+;main.c:1368: for(UINT8 i = 8; i < MAX_ENEMIES; i++)
 	ld	c, #0x08
 00103$:
 	ld	a, c
 	sub	a, #0x0a
 	jr	NC, 00101$
-;main.c:1368: enemies[i].death = 1;
+;main.c:1370: enemies[i].death = 1;
 	ld	b, #0x00
 	ld	l, c
 	ld	h, b
@@ -4712,43 +4767,43 @@ _room_3::
 	ld	hl, #0x0009
 	add	hl, de
 	ld	(hl), #0x01
-;main.c:1369: hide_enemy_sprites(&enemies[i]);
+;main.c:1371: hide_enemy_sprites(&enemies[i]);
 	push	bc
 	call	_hide_enemy_sprites
 	pop	bc
-;main.c:1366: for(UINT8 i = 8; i < MAX_ENEMIES; i++)
+;main.c:1368: for(UINT8 i = 8; i < MAX_ENEMIES; i++)
 	inc	c
 	jr	00103$
 00101$:
-;main.c:1372: enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
+;main.c:1374: enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
 	ld	hl, #_enemy_start_delay_timer
 	ld	(hl), #0x0f
-;main.c:1373: room_cleared = 0;
-;main.c:1374: reward_active = 0;
+;main.c:1375: room_cleared = 0;
+;main.c:1376: reward_active = 0;
 	xor	a, a
 	ld	(#_room_cleared), a
 	ld	(#_reward_active),a
-;main.c:1375: reward_claimed = 0;
-;main.c:1376: can_transition = 0;
+;main.c:1377: reward_claimed = 0;
+;main.c:1378: can_transition = 0;
 	xor	a, a
 	ld	(#_reward_claimed), a
 	ld	(#_can_transition),a
-;main.c:1377: room_clear_timer = 0;
-;main.c:1378: transition_cooldown_timer = 0;
+;main.c:1379: room_clear_timer = 0;
+;main.c:1380: transition_cooldown_timer = 0;
 	xor	a, a
 	ld	(#_room_clear_timer), a
 	ld	(#_transition_cooldown_timer),a
-;main.c:1379: }
+;main.c:1381: }
 	ret
-;main.c:1381: void room_4(void)
+;main.c:1383: void room_4(void)
 ;	---------------------------------
 ; Function room_4
 ; ---------------------------------
 _room_4::
-;main.c:1383: current_enemy_count = 10;
+;main.c:1385: current_enemy_count = 10;
 	ld	hl, #_current_enemy_count
 	ld	(hl), #0x0a
-;main.c:1384: setup_enemy(&enemies[0], 22, 26, 50, ENEMY_TYPE_SLIME);   // Left top
+;main.c:1386: setup_enemy(&enemies[0], 22, 26, 50, ENEMY_TYPE_SLIME);   // Left top
 	xor	a, a
 	ld	h, a
 	ld	l, #0x32
@@ -4759,7 +4814,7 @@ _room_4::
 	ld	a, #0x16
 	ld	de, #_enemies
 	call	_setup_enemy
-;main.c:1385: setup_enemy(&enemies[1], 23, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
+;main.c:1387: setup_enemy(&enemies[1], 23, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
 	xor	a, a
 	ld	h, a
 	ld	l, #0x46
@@ -4770,7 +4825,7 @@ _room_4::
 	ld	a, #0x17
 	ld	de, #(_enemies + 20)
 	call	_setup_enemy
-;main.c:1386: setup_enemy(&enemies[2], 24, 26, 90, ENEMY_TYPE_SLIME);  // Right top
+;main.c:1388: setup_enemy(&enemies[2], 24, 26, 90, ENEMY_TYPE_SLIME);  // Right top
 	xor	a, a
 	ld	h, a
 	ld	l, #0x5a
@@ -4781,7 +4836,7 @@ _room_4::
 	ld	a, #0x18
 	ld	de, #(_enemies + 40)
 	call	_setup_enemy
-;main.c:1387: setup_enemy(&enemies[3], 25, 134, 50, ENEMY_TYPE_SLIME);  // Right bottom
+;main.c:1389: setup_enemy(&enemies[3], 25, 134, 50, ENEMY_TYPE_SLIME);  // Right bottom
 	xor	a, a
 	ld	h, a
 	ld	l, #0x32
@@ -4792,7 +4847,7 @@ _room_4::
 	ld	a, #0x19
 	ld	de, #(_enemies + 60)
 	call	_setup_enemy
-;main.c:1388: setup_enemy(&enemies[4], 26, 134, 70, ENEMY_TYPE_SLIME);  
+;main.c:1390: setup_enemy(&enemies[4], 26, 134, 70, ENEMY_TYPE_SLIME);  
 	xor	a, a
 	ld	h, a
 	ld	l, #0x46
@@ -4803,7 +4858,7 @@ _room_4::
 	ld	a, #0x1a
 	ld	de, #(_enemies + 80)
 	call	_setup_enemy
-;main.c:1389: setup_enemy(&enemies[5], 27, 134, 90, ENEMY_TYPE_SLIME);
+;main.c:1391: setup_enemy(&enemies[5], 27, 134, 90, ENEMY_TYPE_SLIME);
 	xor	a, a
 	ld	h, a
 	ld	l, #0x5a
@@ -4814,7 +4869,7 @@ _room_4::
 	ld	a, #0x1b
 	ld	de, #(_enemies + 100)
 	call	_setup_enemy
-;main.c:1390: setup_enemy(&enemies[6], 28, 26, 110, ENEMY_TYPE_SLIME);  
+;main.c:1392: setup_enemy(&enemies[6], 28, 26, 110, ENEMY_TYPE_SLIME);  
 	xor	a, a
 	ld	h, a
 	ld	l, #0x6e
@@ -4825,7 +4880,7 @@ _room_4::
 	ld	a, #0x1c
 	ld	de, #(_enemies + 120)
 	call	_setup_enemy
-;main.c:1391: setup_enemy(&enemies[7], 29, 134, 110, ENEMY_TYPE_SLIME);
+;main.c:1393: setup_enemy(&enemies[7], 29, 134, 110, ENEMY_TYPE_SLIME);
 	xor	a, a
 	ld	h, a
 	ld	l, #0x6e
@@ -4836,7 +4891,7 @@ _room_4::
 	ld	a, #0x1d
 	ld	de, #(_enemies + 140)
 	call	_setup_enemy
-;main.c:1392: setup_enemy(&enemies[8], 30, 46, 110, ENEMY_TYPE_SLIME);  
+;main.c:1394: setup_enemy(&enemies[8], 30, 46, 110, ENEMY_TYPE_SLIME);  
 	xor	a, a
 	ld	h, a
 	ld	l, #0x6e
@@ -4847,7 +4902,7 @@ _room_4::
 	ld	a, #0x1e
 	ld	de, #(_enemies + 160)
 	call	_setup_enemy
-;main.c:1393: setup_enemy(&enemies[9], 31, 114, 110, ENEMY_TYPE_SLIME);
+;main.c:1395: setup_enemy(&enemies[9], 31, 114, 110, ENEMY_TYPE_SLIME);
 	xor	a, a
 	ld	h, a
 	ld	l, #0x6e
@@ -4858,49 +4913,49 @@ _room_4::
 	ld	a, #0x1f
 	ld	de, #(_enemies + 180)
 	call	_setup_enemy
-;main.c:1396: for(UINT8 i = 10; i <= MAX_ENEMIES; i++)
+;main.c:1398: for(UINT8 i = 10; i <= MAX_ENEMIES; i++)
 	ld	a, #0x0a
 00103$:
 	cp	a, #0x0b
 	jr	NC, 00101$
-;main.c:1398: enemies[i].death = 1;
+;main.c:1400: enemies[i].death = 1;
 	ld	hl, #(_enemies + 200) + 9
 	ld	(hl), #0x01
-;main.c:1399: hide_enemy_sprites(&enemies[i]);
+;main.c:1401: hide_enemy_sprites(&enemies[i]);
 	ld	de, #(_enemies + 200)
 	call	_hide_enemy_sprites
-;main.c:1396: for(UINT8 i = 10; i <= MAX_ENEMIES; i++)
+;main.c:1398: for(UINT8 i = 10; i <= MAX_ENEMIES; i++)
 	ld	a, #0x0b
 	jr	00103$
 00101$:
-;main.c:1402: enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
+;main.c:1404: enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
 	ld	hl, #_enemy_start_delay_timer
 	ld	(hl), #0x0f
-;main.c:1403: room_cleared = 0;
-;main.c:1404: reward_active = 0;
+;main.c:1405: room_cleared = 0;
+;main.c:1406: reward_active = 0;
 	xor	a, a
 	ld	(#_room_cleared), a
 	ld	(#_reward_active),a
-;main.c:1405: reward_claimed = 0;
-;main.c:1406: can_transition = 0;
+;main.c:1407: reward_claimed = 0;
+;main.c:1408: can_transition = 0;
 	xor	a, a
 	ld	(#_reward_claimed), a
 	ld	(#_can_transition),a
-;main.c:1407: room_clear_timer = 0;
-;main.c:1408: transition_cooldown_timer = 0;
+;main.c:1409: room_clear_timer = 0;
+;main.c:1410: transition_cooldown_timer = 0;
 	xor	a, a
 	ld	(#_room_clear_timer), a
 	ld	(#_transition_cooldown_timer),a
-;main.c:1409: }
+;main.c:1411: }
 	ret
-;main.c:1412: void room_2(void)
+;main.c:1414: void room_2(void)
 ;	---------------------------------
 ; Function room_2
 ; ---------------------------------
 _room_2::
-;main.c:1414: current_enemy_count = 1;  // Just the boss
+;main.c:1416: current_enemy_count = 1;  // Just the boss
 	ld	hl, #_current_enemy_count
-;main.c:1416: setup_enemy(&enemies[0], 22, 80, 60, ENEMY_TYPE_BOSS);
+;main.c:1418: setup_enemy(&enemies[0], 22, 80, 60, ENEMY_TYPE_BOSS);
 	ld	(hl), #0x01
 	ld	hl, #0x13c
 	push	hl
@@ -4910,13 +4965,13 @@ _room_2::
 	ld	a, #0x16
 	ld	de, #_enemies
 	call	_setup_enemy
-;main.c:1419: for(UINT8 i = 1; i < MAX_ENEMIES; i++)
+;main.c:1421: for(UINT8 i = 1; i < MAX_ENEMIES; i++)
 	ld	c, #0x01
 00103$:
 	ld	a, c
 	sub	a, #0x0a
 	jr	NC, 00101$
-;main.c:1421: enemies[i].death = 1;
+;main.c:1423: enemies[i].death = 1;
 	ld	b, #0x00
 	ld	l, c
 	ld	h, b
@@ -4934,43 +4989,43 @@ _room_2::
 	ld	hl, #0x0009
 	add	hl, de
 	ld	(hl), #0x01
-;main.c:1422: hide_enemy_sprites(&enemies[i]);
+;main.c:1424: hide_enemy_sprites(&enemies[i]);
 	push	bc
 	call	_hide_enemy_sprites
 	pop	bc
-;main.c:1419: for(UINT8 i = 1; i < MAX_ENEMIES; i++)
+;main.c:1421: for(UINT8 i = 1; i < MAX_ENEMIES; i++)
 	inc	c
 	jr	00103$
 00101$:
-;main.c:1425: enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
+;main.c:1427: enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
 	ld	hl, #_enemy_start_delay_timer
 	ld	(hl), #0x0f
-;main.c:1426: room_cleared = 0;
-;main.c:1427: reward_active = 0;
+;main.c:1428: room_cleared = 0;
+;main.c:1429: reward_active = 0;
 	xor	a, a
 	ld	(#_room_cleared), a
 	ld	(#_reward_active),a
-;main.c:1428: reward_claimed = 0;
-;main.c:1429: can_transition = 0;
+;main.c:1430: reward_claimed = 0;
+;main.c:1431: can_transition = 0;
 	xor	a, a
 	ld	(#_reward_claimed), a
 	ld	(#_can_transition),a
-;main.c:1430: room_clear_timer = 0;
-;main.c:1431: transition_cooldown_timer = 0;
+;main.c:1432: room_clear_timer = 0;
+;main.c:1433: transition_cooldown_timer = 0;
 	xor	a, a
 	ld	(#_room_clear_timer), a
 	ld	(#_transition_cooldown_timer),a
-;main.c:1432: }
+;main.c:1434: }
 	ret
-;main.c:1434: void room_5(void)
+;main.c:1436: void room_5(void)
 ;	---------------------------------
 ; Function room_5
 ; ---------------------------------
 _room_5::
-;main.c:1436: current_enemy_count = 5;  // Boss and adds
+;main.c:1438: current_enemy_count = 5;  // Boss and adds
 	ld	hl, #_current_enemy_count
 	ld	(hl), #0x05
-;main.c:1438: setup_enemy(&enemies[0], 22, 80, 60, ENEMY_TYPE_BOSS);
+;main.c:1440: setup_enemy(&enemies[0], 22, 80, 60, ENEMY_TYPE_BOSS);
 	ld	hl, #0x13c
 	push	hl
 	ld	a, #0x50
@@ -4979,18 +5034,7 @@ _room_5::
 	ld	a, #0x16
 	ld	de, #_enemies
 	call	_setup_enemy
-;main.c:1439: setup_enemy(&enemies[1], 26, 26, 50, ENEMY_TYPE_SLIME);   // Left top
-	xor	a, a
-	ld	h, a
-	ld	l, #0x32
-	push	hl
-	ld	a, #0x1a
-	push	af
-	inc	sp
-	ld	a, #0x1a
-	ld	de, #(_enemies + 20)
-	call	_setup_enemy
-;main.c:1440: setup_enemy(&enemies[2], 27, 26, 70, ENEMY_TYPE_SLIME);   // Left bottom
+;main.c:1441: setup_enemy(&enemies[1], 26, 26, 70, ENEMY_TYPE_SLIME);   // Left top
 	xor	a, a
 	ld	h, a
 	ld	l, #0x46
@@ -4998,10 +5042,21 @@ _room_5::
 	ld	a, #0x1a
 	push	af
 	inc	sp
+	ld	a, #0x1a
+	ld	de, #(_enemies + 20)
+	call	_setup_enemy
+;main.c:1442: setup_enemy(&enemies[2], 27, 134, 70, ENEMY_TYPE_SLIME);   // Left bottom
+	xor	a, a
+	ld	h, a
+	ld	l, #0x46
+	push	hl
+	ld	a, #0x86
+	push	af
+	inc	sp
 	ld	a, #0x1b
 	ld	de, #(_enemies + 40)
 	call	_setup_enemy
-;main.c:1441: setup_enemy(&enemies[3], 28, 26, 90, ENEMY_TYPE_SLIME);  // Right top
+;main.c:1443: setup_enemy(&enemies[3], 28, 26, 90, ENEMY_TYPE_SLIME);  // Right top
 	xor	a, a
 	ld	h, a
 	ld	l, #0x5a
@@ -5012,10 +5067,10 @@ _room_5::
 	ld	a, #0x1c
 	ld	de, #(_enemies + 60)
 	call	_setup_enemy
-;main.c:1442: setup_enemy(&enemies[4], 29, 134, 50, ENEMY_TYPE_SLIME);  // Right bottom
+;main.c:1444: setup_enemy(&enemies[4], 29, 134, 90, ENEMY_TYPE_SLIME);  // Right bottom
 	xor	a, a
 	ld	h, a
-	ld	l, #0x32
+	ld	l, #0x5a
 	push	hl
 	ld	a, #0x86
 	push	af
@@ -5023,16 +5078,16 @@ _room_5::
 	ld	a, #0x1d
 	ld	de, #(_enemies + 80)
 	call	_setup_enemy
-;main.c:1444: current_enemy_count = 5;
+;main.c:1446: current_enemy_count = 5;
 	ld	hl, #_current_enemy_count
 	ld	(hl), #0x05
-;main.c:1446: for(UINT8 i = 5; i < MAX_ENEMIES; i++)
+;main.c:1448: for(UINT8 i = 5; i < MAX_ENEMIES; i++)
 	ld	c, #0x05
 00103$:
 	ld	a, c
 	sub	a, #0x0a
 	jr	NC, 00101$
-;main.c:1448: enemies[i].death = 1;
+;main.c:1450: enemies[i].death = 1;
 	ld	b, #0x00
 	ld	l, c
 	ld	h, b
@@ -5050,124 +5105,124 @@ _room_5::
 	ld	hl, #0x0009
 	add	hl, de
 	ld	(hl), #0x01
-;main.c:1449: hide_enemy_sprites(&enemies[i]);
+;main.c:1451: hide_enemy_sprites(&enemies[i]);
 	push	bc
 	call	_hide_enemy_sprites
 	pop	bc
-;main.c:1446: for(UINT8 i = 5; i < MAX_ENEMIES; i++)
+;main.c:1448: for(UINT8 i = 5; i < MAX_ENEMIES; i++)
 	inc	c
 	jr	00103$
 00101$:
-;main.c:1452: enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
+;main.c:1454: enemy_start_delay_timer = ENEMY_START_DELAY_FRAMES;
 	ld	hl, #_enemy_start_delay_timer
 	ld	(hl), #0x0f
-;main.c:1453: room_cleared = 0;
-;main.c:1454: reward_active = 0;
+;main.c:1455: room_cleared = 0;
+;main.c:1456: reward_active = 0;
 	xor	a, a
 	ld	(#_room_cleared), a
 	ld	(#_reward_active),a
-;main.c:1455: reward_claimed = 0;
-;main.c:1456: can_transition = 0;
+;main.c:1457: reward_claimed = 0;
+;main.c:1458: can_transition = 0;
 	xor	a, a
 	ld	(#_reward_claimed), a
 	ld	(#_can_transition),a
-;main.c:1457: room_clear_timer = 0;
-;main.c:1458: transition_cooldown_timer = 0;
+;main.c:1459: room_clear_timer = 0;
+;main.c:1460: transition_cooldown_timer = 0;
 	xor	a, a
 	ld	(#_room_clear_timer), a
 	ld	(#_transition_cooldown_timer),a
-;main.c:1459: }
+;main.c:1461: }
 	ret
-;main.c:1462: void load_room(UINT8 room_id)
+;main.c:1464: void load_room(UINT8 room_id)
 ;	---------------------------------
 ; Function load_room
 ; ---------------------------------
 _load_room::
-;main.c:1464: if(room_id == 0)
+;main.c:1466: if(room_id == 0)
 	or	a, a
 	jr	NZ, 00117$
-;main.c:1466: room_0();
+;main.c:1468: room_0();
 	call	_room_0
 	jr	00118$
 00117$:
-;main.c:1468: else if(room_id == 1)
+;main.c:1470: else if(room_id == 1)
 	cp	a, #0x01
 	jr	NZ, 00114$
-;main.c:1470: room_1();
+;main.c:1472: room_1();
 	call	_room_1
 	jr	00118$
 00114$:
-;main.c:1472: else if(room_id == 2)
+;main.c:1474: else if(room_id == 2)
 	cp	a, #0x02
 	jr	NZ, 00111$
-;main.c:1474: room_2();
+;main.c:1476: room_2();
 	call	_room_2
 	jr	00118$
 00111$:
-;main.c:1476: else if(room_id == 3)
+;main.c:1478: else if(room_id == 3)
 	cp	a, #0x03
 	jr	NZ, 00108$
-;main.c:1478: room_3();
+;main.c:1480: room_3();
 	call	_room_3
 	jr	00118$
 00108$:
-;main.c:1480: else if(room_id == 4)
+;main.c:1482: else if(room_id == 4)
 	cp	a, #0x04
 	jr	NZ, 00105$
-;main.c:1482: room_4();
+;main.c:1484: room_4();
 	call	_room_4
 	jr	00118$
 00105$:
-;main.c:1484: else if(room_id == 5)
+;main.c:1486: else if(room_id == 5)
 	sub	a, #0x05
 	jr	NZ, 00102$
-;main.c:1486: room_5();
+;main.c:1488: room_5();
 	call	_room_5
 	jr	00118$
 00102$:
-;main.c:1490: room_0();
+;main.c:1492: room_0();
 	call	_room_0
 00118$:
-;main.c:1493: setup_character(&girl, PLAYER_SPAWN_X, PLAYER_SPAWN_Y);
+;main.c:1495: setup_character(&girl, PLAYER_SPAWN_X, PLAYER_SPAWN_Y);
 	ld	a, #0x24
 	push	af
 	inc	sp
 	ld	a, #0x50
 	ld	de, #_girl
 	call	_setup_character
-;main.c:1494: direction = 0;
+;main.c:1496: direction = 0;
 	xor	a, a
 	ld	(#_direction),a
-;main.c:1495: move_weapon(&sword, &girl);
+;main.c:1497: move_weapon(&sword, &girl);
 	ld	bc, #_girl
 	ld	de, #_sword
 	call	_move_weapon
-;main.c:1496: hide_room_clear_ui();
+;main.c:1498: hide_room_clear_ui();
 	call	_hide_room_clear_ui
-;main.c:1497: hide_reward_ui();
+;main.c:1499: hide_reward_ui();
 	call	_hide_reward_ui
-;main.c:1498: hide_ready_ui();
-;main.c:1499: }
+;main.c:1500: hide_ready_ui();
+;main.c:1501: }
 	jp	_hide_ready_ui
-;main.c:1503: void performantdelay(UINT8 numloops)
+;main.c:1505: void performantdelay(UINT8 numloops)
 ;	---------------------------------
 ; Function performantdelay
 ; ---------------------------------
 _performantdelay::
 	ld	c, a
-;main.c:1506: for(i = 0; i < numloops; i++)
+;main.c:1508: for(i = 0; i < numloops; i++)
 	ld	b, #0x00
 00103$:
 	ld	a, b
 	sub	a, c
 	ret	NC
-;main.c:1508: wait_vbl_done();
+;main.c:1510: wait_vbl_done();
 	call	_wait_vbl_done
-;main.c:1506: for(i = 0; i < numloops; i++)
+;main.c:1508: for(i = 0; i < numloops; i++)
 	inc	b
-;main.c:1510: }
+;main.c:1512: }
 	jr	00103$
-;main.c:1512: void character_enemy_collision(struct GameCharacter* character, struct Enemy* enemy)
+;main.c:1514: void character_enemy_collision(struct GameCharacter* character, struct Enemy* enemy)
 ;	---------------------------------
 ; Function character_enemy_collision
 ; ---------------------------------
@@ -5180,7 +5235,7 @@ _character_enemy_collision::
 	ldhl	sp,	#15
 	ld	a, c
 	ld	(hl+), a
-;main.c:1515: if(enemy->death == 1)
+;main.c:1517: if(enemy->death == 1)
 	ld	a, b
 	ld	(hl-), a
 	ld	a, (hl+)
@@ -5193,8 +5248,8 @@ _character_enemy_collision::
 	ld	a, (bc)
 	dec	a
 	jp	Z, 00119$
-;main.c:1517: return;
-;main.c:1520: if (character->x < enemy->x + enemy->width - pad &&
+;main.c:1519: return;
+;main.c:1522: if (character->x < enemy->x + enemy->width - pad &&
 	ldhl	sp,#17
 	ld	a, (hl+)
 	ld	e, a
@@ -5293,7 +5348,7 @@ _character_enemy_collision::
 	scf
 00205$:
 	jp	NC, 00119$
-;main.c:1521: character->x + character->width - pad > enemy->x &&
+;main.c:1523: character->x + character->width - pad > enemy->x &&
 	ldhl	sp,#17
 	ld	a, (hl+)
 	ld	e, a
@@ -5338,7 +5393,7 @@ _character_enemy_collision::
 	scf
 00207$:
 	jp	NC, 00119$
-;main.c:1522: character->y < enemy->y + enemy->height - pad &&
+;main.c:1524: character->y < enemy->y + enemy->height - pad &&
 	ldhl	sp,#17
 	ld	a, (hl+)
 	ld	e, a
@@ -5433,7 +5488,7 @@ _character_enemy_collision::
 	scf
 00209$:
 	jp	NC, 00119$
-;main.c:1523: character->y + character->height - pad > enemy->y)
+;main.c:1525: character->y + character->height - pad > enemy->y)
 	ldhl	sp,#17
 	ld	a, (hl+)
 	ld	e, a
@@ -5478,13 +5533,13 @@ _character_enemy_collision::
 	scf
 00211$:
 	jp	NC, 00119$
-;main.c:1525: UINT8 took_damage = player_take_damage(1);
+;main.c:1527: UINT8 took_damage = player_take_damage(1);
 	ld	a, #0x01
 	call	_player_take_damage
-;main.c:1526: if(took_damage)
+;main.c:1528: if(took_damage)
 	or	a, a
 	jp	Z, 00119$
-;main.c:1528: UINT8 dx = (character->x > enemy->x) ? (character->x - enemy->x) : (enemy->x - character->x);
+;main.c:1530: UINT8 dx = (character->x > enemy->x) ? (character->x - enemy->x) : (enemy->x - character->x);
 	pop	de
 	push	de
 	ld	a, (de)
@@ -5513,7 +5568,7 @@ _character_enemy_collision::
 	dec	hl
 	ld	(hl), a
 00122$:
-;main.c:1529: UINT8 dy = (character->y > enemy->y) ? (character->y - enemy->y) : (enemy->y - character->y);
+;main.c:1531: UINT8 dy = (character->y > enemy->y) ? (character->y - enemy->y) : (enemy->y - character->y);
 	ldhl	sp,#6
 	ld	a, (hl+)
 	ld	e, a
@@ -5536,21 +5591,21 @@ _character_enemy_collision::
 	sub	a, c
 00124$:
 	ld	c, a
-;main.c:1531: if (character->x < enemy->x)
+;main.c:1533: if (character->x < enemy->x)
 	ldhl	sp,	#14
 	ld	a, (hl-)
 	sub	a, (hl)
 	jr	NC, 00104$
-;main.c:1533: knockback_dx = -KNOCKBACK_STEP;
+;main.c:1535: knockback_dx = -KNOCKBACK_STEP;
 	ld	hl, #_knockback_dx
 	ld	(hl), #0xfe
 	jr	00105$
 00104$:
-;main.c:1537: knockback_dx = KNOCKBACK_STEP;
+;main.c:1539: knockback_dx = KNOCKBACK_STEP;
 	ld	hl, #_knockback_dx
 	ld	(hl), #0x02
 00105$:
-;main.c:1539: if (character->y < enemy->y)
+;main.c:1541: if (character->y < enemy->y)
 	ldhl	sp,#6
 	ld	a, (hl+)
 	ld	e, a
@@ -5566,48 +5621,48 @@ _character_enemy_collision::
 	ld	a, b
 	sub	a, l
 	jr	NC, 00107$
-;main.c:1541: knockback_dy = -KNOCKBACK_STEP;
+;main.c:1543: knockback_dy = -KNOCKBACK_STEP;
 	ld	hl, #_knockback_dy
 	ld	(hl), #0xfe
 	jr	00108$
 00107$:
-;main.c:1545: knockback_dy = KNOCKBACK_STEP;
+;main.c:1547: knockback_dy = KNOCKBACK_STEP;
 	ld	hl, #_knockback_dy
 	ld	(hl), #0x02
 00108$:
-;main.c:1548: if (dx < dy)
+;main.c:1550: if (dx < dy)
 	ldhl	sp,	#12
 	ld	a, (hl)
 	sub	a, c
 	jr	NC, 00110$
-;main.c:1550: knockback_dy = 0;
+;main.c:1552: knockback_dy = 0;
 	xor	a, a
 	ld	(#_knockback_dy),a
 	jr	00111$
 00110$:
-;main.c:1554: knockback_dx = 0;
+;main.c:1556: knockback_dx = 0;
 	xor	a, a
 	ld	(#_knockback_dx),a
 00111$:
-;main.c:1557: knockback_timer = KNOCKBACK_FRAMES;
+;main.c:1559: knockback_timer = KNOCKBACK_FRAMES;
 	ld	hl, #_knockback_timer
 	ld	(hl), #0x06
 00119$:
-;main.c:1560: }
+;main.c:1562: }
 	add	sp, #19
 	ret
-;main.c:1562: void hide_character_sprites(struct GameCharacter* character)
+;main.c:1564: void hide_character_sprites(struct GameCharacter* character)
 ;	---------------------------------
 ; Function hide_character_sprites
 ; ---------------------------------
 _hide_character_sprites::
-;main.c:1564: for(UINT8 i = 0; i < 4; i++)
+;main.c:1566: for(UINT8 i = 0; i < 4; i++)
 	ld	c, #0x00
 00104$:
 	ld	a, c
 	sub	a, #0x04
 	ret	NC
-;main.c:1566: hide_sprite(character->spritids[i]);
+;main.c:1568: hide_sprite(character->spritids[i]);
 	ld	l, c
 	ld	h, #0x00
 	add	hl, de
@@ -5622,16 +5677,16 @@ _hide_character_sprites::
 	add	hl, de
 	pop	de
 	ld	(hl), #0x00
-;main.c:1564: for(UINT8 i = 0; i < 4; i++)
+;main.c:1566: for(UINT8 i = 0; i < 4; i++)
 	inc	c
-;main.c:1568: }
+;main.c:1570: }
 	jr	00104$
-;main.c:1570: void hide_sword_sprites(struct Weapon* weapon)
+;main.c:1572: void hide_sword_sprites(struct Weapon* weapon)
 ;	---------------------------------
 ; Function hide_sword_sprites
 ; ---------------------------------
 _hide_sword_sprites::
-;main.c:1572: hide_sprite(weapon->spritids[0]);
+;main.c:1574: hide_sprite(weapon->spritids[0]);
 	ld	a, (de)
 	ld	c, a
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -5643,7 +5698,7 @@ _hide_sword_sprites::
 	ld	bc, #_shadow_OAM
 	add	hl, bc
 	ld	(hl), #0x00
-;main.c:1573: hide_sprite(weapon->spritids[1]);
+;main.c:1575: hide_sprite(weapon->spritids[1]);
 	inc	de
 	ld	a, (de)
 	ld	e, a
@@ -5656,10 +5711,10 @@ _hide_sword_sprites::
 	add	hl, hl
 	add	hl, bc
 	ld	(hl), #0x00
-;main.c:1573: hide_sprite(weapon->spritids[1]);
-;main.c:1574: }
+;main.c:1575: hide_sprite(weapon->spritids[1]);
+;main.c:1576: }
 	ret
-;main.c:1576: void hide_enemy_sprites(struct Enemy* enemy)
+;main.c:1578: void hide_enemy_sprites(struct Enemy* enemy)
 ;	---------------------------------
 ; Function hide_enemy_sprites
 ; ---------------------------------
@@ -5667,14 +5722,14 @@ _hide_enemy_sprites::
 	add	sp, #-4
 	ld	c, e
 	ld	b, d
-;main.c:1578: if(enemy->type == ENEMY_TYPE_SLIME)
+;main.c:1580: if(enemy->type == ENEMY_TYPE_SLIME)
 	ld	hl, #0x000d
 	add	hl, bc
 	ld	e, (hl)
 	ld	a, e
 	or	a, a
 	jr	NZ, 00105$
-;main.c:1580: hide_sprite(enemy->spritids[0]);
+;main.c:1582: hide_sprite(enemy->spritids[0]);
 	ld	a, (bc)
 	ld	e, a
 ;c:\gbdk\include\gb\gb.h:2001: shadow_OAM[nb].y = 0;
@@ -5686,15 +5741,15 @@ _hide_enemy_sprites::
 	ld	de, #_shadow_OAM
 	add	hl, de
 	ld	(hl), #0x00
-;main.c:1581: enemy->spritids[0] = 0xFF;  // Mark as unused
+;main.c:1583: enemy->spritids[0] = 0xFF;  // Mark as unused
 	ld	a, #0xff
 	ld	(bc), a
 	jr	00112$
 00105$:
-;main.c:1583: else if(enemy->type == ENEMY_TYPE_BOSS)
+;main.c:1585: else if(enemy->type == ENEMY_TYPE_BOSS)
 	dec	e
 	jr	NZ, 00112$
-;main.c:1585: for(UINT8 i = 0; i < 4; i++)
+;main.c:1587: for(UINT8 i = 0; i < 4; i++)
 	ldhl	sp,	#3
 	ld	(hl), #0x00
 00110$:
@@ -5702,7 +5757,7 @@ _hide_enemy_sprites::
 	ld	a, (hl)
 	sub	a, #0x04
 	jr	NC, 00112$
-;main.c:1587: hide_sprite(enemy->spritids[i]);
+;main.c:1589: hide_sprite(enemy->spritids[i]);
 	ld	l, (hl)
 	ld	h, #0x00
 	add	hl, bc
@@ -5724,19 +5779,19 @@ _hide_enemy_sprites::
 	ld	de, #_shadow_OAM
 	add	hl, de
 	ld	(hl), #0x00
-;main.c:1588: enemy->spritids[i] = 0xFF;  // Mark as unused
+;main.c:1590: enemy->spritids[i] = 0xFF;  // Mark as unused
 	pop	hl
 	ld	(hl), #0xff
 	push	hl
-;main.c:1585: for(UINT8 i = 0; i < 4; i++)
+;main.c:1587: for(UINT8 i = 0; i < 4; i++)
 	ldhl	sp,	#3
 	inc	(hl)
 	jr	00110$
 00112$:
-;main.c:1591: }
+;main.c:1593: }
 	add	sp, #4
 	ret
-;main.c:1593: void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 enemy_index)
+;main.c:1595: void weapon_enemy_collision(struct Weapon* weapon, struct Enemy* enemy, UINT8 enemy_index)
 ;	---------------------------------
 ; Function weapon_enemy_collision
 ; ---------------------------------
@@ -5749,7 +5804,7 @@ _weapon_enemy_collision::
 	ldhl	sp,	#14
 	ld	a, c
 	ld	(hl+), a
-;main.c:1596: if(enemy->death == 1)
+;main.c:1598: if(enemy->death == 1)
 	ld	a, b
 	ld	(hl-), a
 	ld	a, (hl+)
@@ -5765,8 +5820,8 @@ _weapon_enemy_collision::
 	ld	a, (de)
 	dec	a
 	jp	Z, 00140$
-;main.c:1598: return;
-;main.c:1602: if(hit_this_attack[enemy_index] == 1)
+;main.c:1600: return;
+;main.c:1604: if(hit_this_attack[enemy_index] == 1)
 	ld	de, #_hit_this_attack
 	ldhl	sp,	#20
 	ld	l, (hl)
@@ -5786,8 +5841,8 @@ _weapon_enemy_collision::
 	ld	a, (de)
 	dec	a
 	jp	Z, 00140$
-;main.c:1604: return;
-;main.c:1611: UINT8 collision_x = weapon->x;
+;main.c:1606: return;
+;main.c:1613: UINT8 collision_x = weapon->x;
 	ldhl	sp,	#16
 	ld	a, (hl+)
 	ld	c, a
@@ -5800,7 +5855,7 @@ _weapon_enemy_collision::
 	ld	a, (hl+)
 	inc	hl
 	ld	(hl), a
-;main.c:1612: UINT8 collision_y = weapon->y;
+;main.c:1614: UINT8 collision_y = weapon->y;
 	ldhl	sp,#16
 	ld	a, (hl+)
 	ld	e, a
@@ -5824,7 +5879,7 @@ _weapon_enemy_collision::
 	ld	(hl), a
 	ldhl	sp,	#4
 	ld	(hl), a
-;main.c:1613: UINT8 collision_width = weapon->width;
+;main.c:1615: UINT8 collision_width = weapon->width;
 	ldhl	sp,#16
 	ld	a, (hl+)
 	ld	e, a
@@ -5844,7 +5899,7 @@ _weapon_enemy_collision::
 	ld	d, (hl)
 	ld	a, (de)
 	ld	c, a
-;main.c:1614: UINT8 collision_height = weapon->height;
+;main.c:1616: UINT8 collision_height = weapon->height;
 	ldhl	sp,#16
 	ld	a, (hl+)
 	ld	e, a
@@ -5856,33 +5911,33 @@ _weapon_enemy_collision::
 	ld	a, (de)
 	ldhl	sp,	#5
 	ld	(hl), a
-;main.c:1617: if(direction == 2 || direction == 3) // left or right
+;main.c:1619: if(direction == 2 || direction == 3) // left or right
 	ld	a,(#_direction)
 	cp	a,#0x02
 	jr	Z, 00105$
 	sub	a, #0x03
 	jr	NZ, 00106$
 00105$:
-;main.c:1619: collision_x = weapon->x - 8;  // Start 8px to the left
+;main.c:1621: collision_x = weapon->x - 8;  // Start 8px to the left
 	ldhl	sp,	#11
 	ld	a, (hl+)
 	inc	hl
 	add	a, #0xf8
 	ld	(hl), a
-;main.c:1620: collision_width = 16;  // 2 sprites wide
+;main.c:1622: collision_width = 16;  // 2 sprites wide
 	ld	c, #0x10
 	jr	00107$
 00106$:
-;main.c:1624: collision_y = weapon->y - 8;  // Start 8px up
+;main.c:1626: collision_y = weapon->y - 8;  // Start 8px up
 	ldhl	sp,	#12
 	ld	a, (hl)
 	add	a, #0xf8
 	ldhl	sp,	#4
-;main.c:1625: collision_height = 16;  // 2 sprites tall
+;main.c:1627: collision_height = 16;  // 2 sprites tall
 	ld	(hl+), a
 	ld	(hl), #0x10
 00107$:
-;main.c:1628: if (collision_x < enemy->x + enemy->width &&
+;main.c:1630: if (collision_x < enemy->x + enemy->width &&
 	ldhl	sp,#14
 	ld	a, (hl+)
 	ld	e, a
@@ -5943,7 +5998,7 @@ _weapon_enemy_collision::
 	ld	a, (de)
 	sbc	a, (hl)
 	jp	NC, 00140$
-;main.c:1629: collision_x + collision_width > enemy->x &&
+;main.c:1631: collision_x + collision_width > enemy->x &&
 	ld	b, #0x00
 	ldhl	sp,	#12
 	ld	a,	(hl+)
@@ -5958,7 +6013,7 @@ _weapon_enemy_collision::
 	ld	a, (hl)
 	sbc	a, b
 	jp	NC, 00140$
-;main.c:1630: collision_y < enemy->y + enemy->height &&
+;main.c:1632: collision_y < enemy->y + enemy->height &&
 	ldhl	sp,#14
 	ld	a, (hl+)
 	ld	e, a
@@ -6009,7 +6064,7 @@ _weapon_enemy_collision::
 	ld	a, (hl)
 	sbc	a, b
 	jp	NC, 00140$
-;main.c:1631: collision_y + collision_height > enemy->y)
+;main.c:1633: collision_y + collision_height > enemy->y)
 	ldhl	sp,	#5
 	ld	c, (hl)
 	ld	b, #0x00
@@ -6026,13 +6081,13 @@ _weapon_enemy_collision::
 	ld	a, (hl)
 	sbc	a, b
 	jp	NC, 00140$
-;main.c:1634: hit_this_attack[enemy_index] = 1;
+;main.c:1636: hit_this_attack[enemy_index] = 1;
 	ldhl	sp,	#2
 	ld	a, (hl+)
 	ld	h, (hl)
 	ld	l, a
 	ld	(hl), #0x01
-;main.c:1635: if(enemy->current_health > 0)
+;main.c:1637: if(enemy->current_health > 0)
 	ldhl	sp,#14
 	ld	a, (hl+)
 	ld	e, a
@@ -6046,28 +6101,28 @@ _weapon_enemy_collision::
 	ld	(hl), a
 	or	a, a
 	jr	Z, 00122$
-;main.c:1637: if(player_stats.damage >= enemy->current_health)
+;main.c:1639: if(player_stats.damage >= enemy->current_health)
 	ld	de, #_player_stats+2
 	ld	a, (de)
 	ld	e, a
 	sub	a, (hl)
 	jr	C, 00110$
-;main.c:1639: enemy->current_health = 0;
+;main.c:1641: enemy->current_health = 0;
 	xor	a, a
 	ld	(bc), a
 	jr	00111$
 00110$:
-;main.c:1643: enemy->current_health -= player_stats.damage;
+;main.c:1645: enemy->current_health -= player_stats.damage;
 	ldhl	sp,	#13
 	ld	a, (hl)
 	sub	a, e
 	ld	(bc), a
 00111$:
-;main.c:1646: if(direction == 2) // left
+;main.c:1648: if(direction == 2) // left
 	ld	a, (#_direction)
 	sub	a, #0x02
 	jr	NZ, 00119$
-;main.c:1648: enemy->x -= ENEMY_KNOCKBACK_STEP;
+;main.c:1650: enemy->x -= ENEMY_KNOCKBACK_STEP;
 	ldhl	sp,#6
 	ld	a, (hl+)
 	ld	e, a
@@ -6082,11 +6137,11 @@ _weapon_enemy_collision::
 	ld	(hl), a
 	jr	00120$
 00119$:
-;main.c:1650: else if(direction == 3) // right
+;main.c:1652: else if(direction == 3) // right
 	ld	a, (#_direction)
 	sub	a, #0x03
 	jr	NZ, 00116$
-;main.c:1652: enemy->x += ENEMY_KNOCKBACK_STEP;
+;main.c:1654: enemy->x += ENEMY_KNOCKBACK_STEP;
 	ldhl	sp,#6
 	ld	a, (hl+)
 	ld	e, a
@@ -6101,19 +6156,19 @@ _weapon_enemy_collision::
 	ld	(hl), a
 	jr	00120$
 00116$:
-;main.c:1630: collision_y < enemy->y + enemy->height &&
+;main.c:1632: collision_y < enemy->y + enemy->height &&
 	ldhl	sp,#8
 	ld	a, (hl+)
 	ld	e, a
 	ld	d, (hl)
 	ld	a, (de)
-;main.c:1656: enemy->y -= ENEMY_KNOCKBACK_STEP;
+;main.c:1658: enemy->y -= ENEMY_KNOCKBACK_STEP;
 	ld	e, a
-;main.c:1654: else if(direction == 1) // up
+;main.c:1656: else if(direction == 1) // up
 	ld	a, (#_direction)
 	dec	a
 	jr	NZ, 00113$
-;main.c:1656: enemy->y -= ENEMY_KNOCKBACK_STEP;
+;main.c:1658: enemy->y -= ENEMY_KNOCKBACK_STEP;
 	ld	a, e
 	add	a, #0xf8
 	ldhl	sp,	#8
@@ -6124,7 +6179,7 @@ _weapon_enemy_collision::
 	ld	(hl), a
 	jr	00120$
 00113$:
-;main.c:1660: enemy->y += ENEMY_KNOCKBACK_STEP;
+;main.c:1662: enemy->y += ENEMY_KNOCKBACK_STEP;
 	ld	a, e
 	add	a, #0x08
 	ldhl	sp,	#8
@@ -6134,7 +6189,7 @@ _weapon_enemy_collision::
 	ld	l, e
 	ld	(hl), a
 00120$:
-;main.c:1663: enemy_check_borders(enemy);
+;main.c:1665: enemy_check_borders(enemy);
 	push	bc
 	ldhl	sp,	#16
 	ld	a, (hl+)
@@ -6143,25 +6198,25 @@ _weapon_enemy_collision::
 	call	_enemy_check_borders
 	pop	bc
 00122$:
-;main.c:1666: sfx_enemy_hit();
+;main.c:1668: sfx_enemy_hit();
 	push	bc
 	call	_sfx_enemy_hit
 	pop	bc
-;main.c:1668: if(enemy->current_health == 0)
+;main.c:1670: if(enemy->current_health == 0)
 	ld	a, (bc)
 	or	a, a
 	jr	NZ, 00140$
-;main.c:1670: enemy->death = 1;
+;main.c:1672: enemy->death = 1;
 	pop	hl
 	ld	(hl), #0x01
 	push	hl
-;main.c:1671: hide_enemy_sprites(enemy);
+;main.c:1673: hide_enemy_sprites(enemy);
 	ldhl	sp,	#14
 	ld	a, (hl+)
 	ld	e, a
 	ld	d, (hl)
 	call	_hide_enemy_sprites
-;main.c:1674: if(enemy->type == ENEMY_TYPE_BOSS)
+;main.c:1676: if(enemy->type == ENEMY_TYPE_BOSS)
 	ldhl	sp,#14
 	ld	a, (hl+)
 	ld	e, a
@@ -6173,7 +6228,7 @@ _weapon_enemy_collision::
 	ld	a, (bc)
 	dec	a
 	jr	NZ, 00132$
-;main.c:1677: if(enemy->x < MIN_ENEMY_X) enemy->x = MIN_ENEMY_X;
+;main.c:1679: if(enemy->x < MIN_ENEMY_X) enemy->x = MIN_ENEMY_X;
 	ldhl	sp,#6
 	ld	a, (hl+)
 	ld	e, a
@@ -6186,7 +6241,7 @@ _weapon_enemy_collision::
 	ld	h, a
 	ld	(hl), #0x18
 00124$:
-;main.c:1678: if(enemy->x > MAX_ENEMY_X) enemy->x = MAX_ENEMY_X;
+;main.c:1680: if(enemy->x > MAX_ENEMY_X) enemy->x = MAX_ENEMY_X;
 	ldhl	sp,#6
 	ld	a, (hl+)
 	ld	e, a
@@ -6199,7 +6254,7 @@ _weapon_enemy_collision::
 	ld	h, a
 	ld	(hl), #0x90
 00126$:
-;main.c:1679: if(enemy->y < MIN_ENEMY_Y) enemy->y = MIN_ENEMY_Y;
+;main.c:1681: if(enemy->y < MIN_ENEMY_Y) enemy->y = MIN_ENEMY_Y;
 	ldhl	sp,#8
 	ld	a, (hl+)
 	ld	e, a
@@ -6212,7 +6267,7 @@ _weapon_enemy_collision::
 	ld	h, a
 	ld	(hl), #0x1c
 00128$:
-;main.c:1680: if(enemy->y > MAX_ENEMY_Y) enemy->y = MAX_ENEMY_Y;
+;main.c:1682: if(enemy->y > MAX_ENEMY_Y) enemy->y = MAX_ENEMY_Y;
 	ldhl	sp,#8
 	ld	a, (hl+)
 	ld	e, a
@@ -6225,23 +6280,23 @@ _weapon_enemy_collision::
 	ld	h, a
 	ld	(hl), #0x78
 00130$:
-;main.c:1682: spawn_boss_death_slimes(enemy);
+;main.c:1684: spawn_boss_death_slimes(enemy);
 	ldhl	sp,	#14
 	ld	a, (hl+)
 	ld	e, a
 	ld	d, (hl)
 	call	_spawn_boss_death_slimes
 00132$:
-;main.c:1685: score ++;
+;main.c:1687: score ++;
 	ld	hl, #_score
 	inc	(hl)
 00140$:
-;main.c:1689: }
+;main.c:1691: }
 	add	sp, #18
 	pop	hl
 	inc	sp
 	jp	(hl)
-;main.c:1690: void move_player(struct GameCharacter* character, UINT8 x, UINT8 y)
+;main.c:1692: void move_player(struct GameCharacter* character, UINT8 x, UINT8 y)
 ;	---------------------------------
 ; Function move_player
 ; ---------------------------------
@@ -6249,7 +6304,7 @@ _move_player::
 	dec	sp
 	ldhl	sp,	#0
 	ld	(hl), a
-;main.c:1692: move_sprite(character->spritids[0], x, y);
+;main.c:1694: move_sprite(character->spritids[0], x, y);
 	ld	a, (de)
 	ld	c, a
 ;c:\gbdk\include\gb\gb.h:1973: OAM_item_t * itm = &shadow_OAM[nb];
@@ -6270,7 +6325,7 @@ _move_player::
 	ldhl	sp,	#0
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1693: move_sprite(character->spritids[1], x + spritesize, y);
+;main.c:1695: move_sprite(character->spritids[1], x + spritesize, y);
 	ld	a, (hl)
 	ld	hl, #_spritesize
 	add	a, (hl)
@@ -6296,7 +6351,7 @@ _move_player::
 	pop	hl
 	ld	(hl+), a
 	ld	(hl), c
-;main.c:1694: move_sprite(character->spritids[2], x, y + spritesize);
+;main.c:1696: move_sprite(character->spritids[2], x, y + spritesize);
 	ldhl	sp,	#3
 	ld	a, (hl)
 	ld	hl, #_spritesize
@@ -6325,7 +6380,7 @@ _move_player::
 	ldhl	sp,	#0
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1695: move_sprite(character->spritids[3], x + spritesize, y + spritesize);
+;main.c:1697: move_sprite(character->spritids[3], x + spritesize, y + spritesize);
 	ldhl	sp,	#3
 	ld	a, (hl)
 	ld	hl, #_spritesize
@@ -6351,13 +6406,13 @@ _move_player::
 	ld	(hl), b
 	inc	hl
 	ld	(hl), c
-;main.c:1695: move_sprite(character->spritids[3], x + spritesize, y + spritesize);
-;main.c:1696: }
+;main.c:1697: move_sprite(character->spritids[3], x + spritesize, y + spritesize);
+;main.c:1698: }
 	inc	sp
 	pop	hl
 	inc	sp
 	jp	(hl)
-;main.c:1697: void move_weapon(struct Weapon* weapon, struct GameCharacter* owner)
+;main.c:1699: void move_weapon(struct Weapon* weapon, struct GameCharacter* owner)
 ;	---------------------------------
 ; Function move_weapon
 ; ---------------------------------
@@ -6366,7 +6421,7 @@ _move_weapon::
 	ldhl	sp,	#12
 	ld	a, e
 	ld	(hl+), a
-;main.c:1703: weapon->x = owner->x;
+;main.c:1705: weapon->x = owner->x;
 	ld	a, d
 	ld	(hl-), a
 	ld	a, (hl+)
@@ -6392,7 +6447,7 @@ _move_weapon::
 	ld	a, h
 	ldhl	sp,	#8
 	ld	(hl), a
-;main.c:1704: weapon->y = owner->y + 8;
+;main.c:1706: weapon->y = owner->y + 8;
 	ldhl	sp,#12
 	ld	a, (hl+)
 	ld	e, a
@@ -6417,11 +6472,11 @@ _move_weapon::
 	ld	a, h
 	ldhl	sp,	#10
 	ld	(hl), a
-;main.c:1701: if(direction == 2) // left
+;main.c:1703: if(direction == 2) // left
 	ld	a, (#_direction)
 	sub	a, #0x02
 	jp	NZ, 00110$
-;main.c:1703: weapon->x = owner->x;
+;main.c:1705: weapon->x = owner->x;
 	ldhl	sp,#7
 	ld	a, (hl+)
 	ld	e, a
@@ -6433,7 +6488,7 @@ _move_weapon::
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:1704: weapon->y = owner->y + 8;
+;main.c:1706: weapon->y = owner->y + 8;
 	ldhl	sp,#9
 	ld	a, (hl+)
 	ld	e, a
@@ -6452,7 +6507,7 @@ _move_weapon::
 	ld	a, #0x12
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1707: weapon->spritids[0] = 4;
+;main.c:1709: weapon->spritids[0] = 4;
 	ldhl	sp,	#12
 	ld	a, (hl-)
 	dec	hl
@@ -6471,7 +6526,7 @@ _move_weapon::
 	ld	a, #0x13
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1710: weapon->spritids[1] = 5;
+;main.c:1712: weapon->spritids[1] = 5;
 	ldhl	sp,#12
 	ld	a, (hl+)
 	ld	e, a
@@ -6491,7 +6546,7 @@ _move_weapon::
 	ld	h, (hl)
 	ld	l, a
 	ld	(hl), #0x05
-;main.c:1711: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+;main.c:1713: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
 	ldhl	sp,#4
 	ld	a, (hl+)
 	ld	e, a
@@ -6556,7 +6611,7 @@ _move_weapon::
 	inc	bc
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1712: move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
+;main.c:1714: move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
 	ldhl	sp,#4
 	ld	a, (hl+)
 	ld	e, a
@@ -6643,14 +6698,14 @@ _move_weapon::
 	ld	d, a
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1712: move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
+;main.c:1714: move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
 	jp	00136$
 00110$:
-;main.c:1714: else if(direction == 3) // right
+;main.c:1716: else if(direction == 3) // right
 	ld	a, (#_direction)
 	sub	a, #0x03
 	jp	NZ, 00107$
-;main.c:1716: weapon->x = owner->x + 18;
+;main.c:1718: weapon->x = owner->x + 18;
 	ldhl	sp,#7
 	ld	a, (hl+)
 	ld	e, a
@@ -6666,7 +6721,7 @@ _move_weapon::
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:1717: weapon->y = owner->y + 8;
+;main.c:1719: weapon->y = owner->y + 8;
 	ldhl	sp,#9
 	ld	a, (hl+)
 	ld	e, a
@@ -6685,7 +6740,7 @@ _move_weapon::
 	ld	a, #0x12
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1720: weapon->spritids[1] = 4;
+;main.c:1722: weapon->spritids[1] = 4;
 	ldhl	sp,#12
 	ld	a, (hl+)
 	ld	e, a
@@ -6711,13 +6766,13 @@ _move_weapon::
 	ld	a, #0x13
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1723: weapon->spritids[0] = 5;
+;main.c:1725: weapon->spritids[0] = 5;
 	ldhl	sp,	#12
 	ld	a, (hl+)
 	ld	h, (hl)
 	ld	l, a
 	ld	(hl), #0x05
-;main.c:1724: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+;main.c:1726: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
 	ldhl	sp,#4
 	ld	a, (hl+)
 	ld	e, a
@@ -6740,7 +6795,7 @@ _move_weapon::
 	ld	de, #(_shadow_OAM + 21)
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1725: move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
+;main.c:1727: move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
 	ldhl	sp,#4
 	ld	a, (hl+)
 	ld	e, a
@@ -6824,14 +6879,14 @@ _move_weapon::
 	ld	d, a
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1725: move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
+;main.c:1727: move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
 	jp	00136$
 00107$:
-;main.c:1727: else if(direction == 1) // up
+;main.c:1729: else if(direction == 1) // up
 	ld	a, (#_direction)
 	dec	a
 	jp	NZ, 00104$
-;main.c:1729: weapon->x = owner->x + 9;
+;main.c:1731: weapon->x = owner->x + 9;
 	ldhl	sp,#7
 	ld	a, (hl+)
 	ld	e, a
@@ -6844,7 +6899,7 @@ _move_weapon::
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:1730: weapon->y = owner->y + 3;
+;main.c:1732: weapon->y = owner->y + 3;
 	ldhl	sp,#9
 	ld	a, (hl+)
 	ld	e, a
@@ -6863,7 +6918,7 @@ _move_weapon::
 	ld	a, #0x14
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1733: weapon->spritids[0] = 4;
+;main.c:1735: weapon->spritids[0] = 4;
 	ldhl	sp,	#12
 	ld	a, (hl+)
 	ld	c, a
@@ -6876,7 +6931,7 @@ _move_weapon::
 	ld	a, #0x15
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1736: weapon->spritids[1] = 5;
+;main.c:1738: weapon->spritids[1] = 5;
 	ldhl	sp,#12
 	ld	a, (hl+)
 	ld	e, a
@@ -6896,7 +6951,7 @@ _move_weapon::
 	ld	h, (hl)
 	ld	l, a
 	ld	(hl), #0x05
-;main.c:1737: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+;main.c:1739: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
 	ldhl	sp,#4
 	ld	a, (hl+)
 	ld	e, a
@@ -6928,7 +6983,7 @@ _move_weapon::
 	inc	bc
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1738: move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
+;main.c:1740: move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
 	ldhl	sp,#4
 	ld	a, (hl+)
 	ld	e, a
@@ -6964,14 +7019,14 @@ _move_weapon::
 	ld	a, b
 	ld	(hl+), a
 	ld	(hl), c
-;main.c:1738: move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
+;main.c:1740: move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
 	jp	00136$
 00104$:
-;main.c:1740: else if(direction == 0) // down
+;main.c:1742: else if(direction == 0) // down
 	ld	a, (#_direction)
 	or	a, a
 	jp	NZ, 00136$
-;main.c:1742: weapon->x = owner->x - 2;
+;main.c:1744: weapon->x = owner->x - 2;
 	ldhl	sp,#7
 	ld	a, (hl+)
 	ld	e, a
@@ -6985,7 +7040,7 @@ _move_weapon::
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:1743: weapon->y = owner->y + 18;
+;main.c:1745: weapon->y = owner->y + 18;
 	ldhl	sp,#9
 	ld	a, (hl+)
 	ld	e, a
@@ -7004,7 +7059,7 @@ _move_weapon::
 	ld	a, #0x14
 	ld	(hl+), a
 	ld	(hl), #0x40
-;main.c:1746: weapon->spritids[1] = 4;
+;main.c:1748: weapon->spritids[1] = 4;
 	ldhl	sp,	#12
 	ld	a, (hl+)
 	ld	c, a
@@ -7018,13 +7073,13 @@ _move_weapon::
 	ld	a, #0x15
 	ld	(hl+), a
 	ld	(hl), #0x40
-;main.c:1749: weapon->spritids[0] = 5;
+;main.c:1751: weapon->spritids[0] = 5;
 	ldhl	sp,	#12
 	ld	a, (hl+)
 	ld	h, (hl)
 	ld	l, a
 	ld	(hl), #0x05
-;main.c:1750: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+;main.c:1752: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
 	ldhl	sp,#4
 	ld	a, (hl+)
 	ld	e, a
@@ -7047,7 +7102,7 @@ _move_weapon::
 	inc	de
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1751: move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
+;main.c:1753: move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
 	ldhl	sp,#4
 	ld	a, (hl+)
 	ld	e, a
@@ -7081,12 +7136,12 @@ _move_weapon::
 	inc	bc
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1751: move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
+;main.c:1753: move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
 00136$:
-;main.c:1753: }
+;main.c:1755: }
 	add	sp, #14
 	ret
-;main.c:1755: void move_sword_sprites_from_position(struct Weapon* weapon)
+;main.c:1757: void move_sword_sprites_from_position(struct Weapon* weapon)
 ;	---------------------------------
 ; Function move_sword_sprites_from_position
 ; ---------------------------------
@@ -7094,7 +7149,7 @@ _move_sword_sprites_from_position::
 	add	sp, #-6
 	ld	c, e
 	ld	b, d
-;main.c:1759: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+;main.c:1761: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
 	ld	hl, #0x0003
 	add	hl, bc
 	push	hl
@@ -7130,7 +7185,7 @@ _move_sword_sprites_from_position::
 	ld	(hl), a
 	ld	a, (bc)
 	ld	e, a
-;main.c:1757: if(direction == 2 || direction == 3)
+;main.c:1759: if(direction == 2 || direction == 3)
 	ld	a, (#_direction)
 	sub	a, #0x02
 	jr	Z, 00101$
@@ -7138,7 +7193,7 @@ _move_sword_sprites_from_position::
 	sub	a, #0x03
 	jr	NZ, 00102$
 00101$:
-;main.c:1759: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+;main.c:1761: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
 	ldhl	sp,	#0
 	ld	d, (hl)
 ;c:\gbdk\include\gb\gb.h:1973: OAM_item_t * itm = &shadow_OAM[nb];
@@ -7159,7 +7214,7 @@ _move_sword_sprites_from_position::
 	ldhl	sp,	#5
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1760: move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
+;main.c:1762: move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
 	ldhl	sp,#1
 	ld	a, (hl+)
 	ld	e, a
@@ -7191,10 +7246,10 @@ _move_sword_sprites_from_position::
 	pop	hl
 	ld	(hl+), a
 	ld	(hl), e
-;main.c:1760: move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
+;main.c:1762: move_sprite(weapon->spritids[1], weapon->x - spritesize, weapon->y);
 	jr	00109$
 00102$:
-;main.c:1764: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
+;main.c:1766: move_sprite(weapon->spritids[0], weapon->x, weapon->y);
 	ldhl	sp,	#0
 	ld	d, (hl)
 ;c:\gbdk\include\gb\gb.h:1973: OAM_item_t * itm = &shadow_OAM[nb];
@@ -7215,7 +7270,7 @@ _move_sword_sprites_from_position::
 	ldhl	sp,	#5
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1765: move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
+;main.c:1767: move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
 	ldhl	sp,#1
 	ld	a, (hl+)
 	ld	e, a
@@ -7250,73 +7305,73 @@ _move_sword_sprites_from_position::
 	ldhl	sp,	#5
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1765: move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
+;main.c:1767: move_sprite(weapon->spritids[1], weapon->x, weapon->y - spritesize);
 00109$:
-;main.c:1767: }
+;main.c:1769: }
 	add	sp, #6
 	ret
-;main.c:1769: void attack(struct GameCharacter* owner, struct Weapon* weapon)
+;main.c:1771: void attack(struct GameCharacter* owner, struct Weapon* weapon)
 ;	---------------------------------
 ; Function attack
 ; ---------------------------------
 _attack::
-;main.c:1774: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
+;main.c:1776: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
 	ld	c, #0x00
 00105$:
 	ld	a, c
 	sub	a, #0x0a
 	jr	NC, 00101$
-;main.c:1776: hit_this_attack[i] = 0;
+;main.c:1778: hit_this_attack[i] = 0;
 	ld	hl, #_hit_this_attack
 	ld	b, #0x00
 	add	hl, bc
 	ld	(hl), #0x00
-;main.c:1774: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
+;main.c:1776: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
 	inc	c
 	jr	00105$
 00101$:
-;main.c:1779: sfx_swing();
+;main.c:1781: sfx_swing();
 	call	_sfx_swing
-;main.c:1781: if (locktimer == 0)
+;main.c:1783: if (locktimer == 0)
 	ld	hl, #_locktimer
 	ld	a, (hl)
 	or	a, a
 	ret	NZ
-;main.c:1783: locktimer ++;
+;main.c:1785: locktimer ++;
 	inc	(hl)
-;main.c:1785: }
+;main.c:1787: }
 	ret
-;main.c:1786: void swordreset(struct GameCharacter* owner, struct Weapon* weapon)
+;main.c:1788: void swordreset(struct GameCharacter* owner, struct Weapon* weapon)
 ;	---------------------------------
 ; Function swordreset
 ; ---------------------------------
 _swordreset::
 	push	bc
-;main.c:1789: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
+;main.c:1791: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
 	ld	c, #0x00
 00103$:
 	ld	a, c
 	sub	a, #0x0a
 	jr	NC, 00101$
-;main.c:1791: hit_this_attack[i] = 0;
+;main.c:1793: hit_this_attack[i] = 0;
 	ld	hl, #_hit_this_attack
 	ld	b, #0x00
 	add	hl, bc
 	ld	(hl), #0x00
-;main.c:1789: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
+;main.c:1791: for(UINT8 i = 0; i < MAX_ENEMIES; i++)
 	inc	c
 	jr	00103$
 00101$:
-;main.c:1794: move_weapon(weapon, owner);
+;main.c:1796: move_weapon(weapon, owner);
 	ld	c, e
 	ld	b, d
 	pop	de
 	jp	_move_weapon
-;main.c:1795: }
+;main.c:1797: }
 	inc	sp
 	inc	sp
 	ret
-;main.c:1796: void move_enemy_small(struct Enemy* character, UINT8 x, UINT8 y)
+;main.c:1798: void move_enemy_small(struct Enemy* character, UINT8 x, UINT8 y)
 ;	---------------------------------
 ; Function move_enemy_small
 ; ---------------------------------
@@ -7328,7 +7383,7 @@ _move_enemy_small::
 	ld	(hl), d
 	dec	hl
 	dec	hl
-;main.c:1798: if(character->type == ENEMY_TYPE_SLIME)
+;main.c:1800: if(character->type == ENEMY_TYPE_SLIME)
 	ld	(hl+), a
 	ld	a, (hl+)
 	ld	e, a
@@ -7340,7 +7395,7 @@ _move_enemy_small::
 	ld	a, (bc)
 	ldhl	sp,	#1
 	ld	(hl), a
-;main.c:1801: move_sprite(character->spritids[0], x, y);
+;main.c:1803: move_sprite(character->spritids[0], x, y);
 	ldhl	sp,	#5
 	ld	a, (hl)
 	ldhl	sp,	#2
@@ -7348,13 +7403,13 @@ _move_enemy_small::
 	ldhl	sp,	#6
 	ld	a, (hl)
 	ldhl	sp,	#3
-;main.c:1798: if(character->type == ENEMY_TYPE_SLIME)
+;main.c:1800: if(character->type == ENEMY_TYPE_SLIME)
 	ld	(hl-), a
 	dec	hl
 	ld	a, (hl)
 	or	a, a
 	jr	NZ, 00104$
-;main.c:1801: move_sprite(character->spritids[0], x, y);
+;main.c:1803: move_sprite(character->spritids[0], x, y);
 	inc	hl
 	ld	a, (hl+)
 	ld	e, a
@@ -7405,15 +7460,15 @@ _move_enemy_small::
 	inc	bc
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1801: move_sprite(character->spritids[0], x, y);
+;main.c:1803: move_sprite(character->spritids[0], x, y);
 	jp	00111$
 00104$:
-;main.c:1803: else if(character->type == ENEMY_TYPE_BOSS)
+;main.c:1805: else if(character->type == ENEMY_TYPE_BOSS)
 	ldhl	sp,	#1
 	ld	a, (hl)
 	dec	a
 	jr	NZ, 00111$
-;main.c:1806: move_sprite(character->spritids[0], x, y);
+;main.c:1808: move_sprite(character->spritids[0], x, y);
 	ldhl	sp,#2
 	ld	a, (hl+)
 	ld	e, a
@@ -7436,7 +7491,7 @@ _move_enemy_small::
 	ldhl	sp,	#4
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1807: move_sprite(character->spritids[1], x + spritesize, y);
+;main.c:1809: move_sprite(character->spritids[1], x + spritesize, y);
 	ld	a, (hl)
 	ld	hl, #_spritesize
 	add	a, (hl)
@@ -7460,7 +7515,7 @@ _move_enemy_small::
 	pop	hl
 	ld	(hl+), a
 	ld	(hl), c
-;main.c:1808: move_sprite(character->spritids[2], x, y + spritesize);
+;main.c:1810: move_sprite(character->spritids[2], x, y + spritesize);
 	ldhl	sp,	#9
 	ld	a, (hl)
 	ld	hl, #_spritesize
@@ -7487,7 +7542,7 @@ _move_enemy_small::
 	ldhl	sp,	#4
 	ld	a, (hl)
 	ld	(bc), a
-;main.c:1809: move_sprite(character->spritids[3], x + spritesize, y + spritesize);
+;main.c:1811: move_sprite(character->spritids[3], x + spritesize, y + spritesize);
 	ldhl	sp,	#9
 	ld	a, (hl)
 	ld	hl, #_spritesize
@@ -7516,14 +7571,14 @@ _move_enemy_small::
 	ld	(hl), b
 	inc	hl
 	ld	(hl), c
-;main.c:1809: move_sprite(character->spritids[3], x + spritesize, y + spritesize);
+;main.c:1811: move_sprite(character->spritids[3], x + spritesize, y + spritesize);
 00111$:
-;main.c:1811: }
+;main.c:1813: }
 	add	sp, #7
 	pop	hl
 	inc	sp
 	jp	(hl)
-;main.c:1812: void animate_enemy(struct Enemy* enemy, UINT8 tile0, UINT8 tile1)
+;main.c:1814: void animate_enemy(struct Enemy* enemy, UINT8 tile0, UINT8 tile1)
 ;	---------------------------------
 ; Function animate_enemy
 ; ---------------------------------
@@ -7532,22 +7587,22 @@ _animate_enemy::
 	ld	c, e
 	ld	b, d
 	ld	e, a
-;main.c:1814: if(enemy->type == ENEMY_TYPE_SLIME)
+;main.c:1816: if(enemy->type == ENEMY_TYPE_SLIME)
 	ld	hl, #0x000d
 	add	hl, bc
 	ld	d, (hl)
 	ld	a, d
 	or	a, a
 	jr	NZ, 00110$
-;main.c:1817: if(enemy->anim == 0)
+;main.c:1819: if(enemy->anim == 0)
 	ld	hl, #0x0008
 	add	hl, bc
 	ld	a, (hl)
-;main.c:1819: set_sprite_tile(enemy->spritids[0], tile0);
-;main.c:1817: if(enemy->anim == 0)
+;main.c:1821: set_sprite_tile(enemy->spritids[0], tile0);
+;main.c:1819: if(enemy->anim == 0)
 	or	a, a
 	jr	NZ, 00104$
-;main.c:1819: set_sprite_tile(enemy->spritids[0], tile0);
+;main.c:1821: set_sprite_tile(enemy->spritids[0], tile0);
 	ld	a, (bc)
 	ld	d, a
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -7560,13 +7615,13 @@ _animate_enemy::
 	inc	hl
 	inc	hl
 	ld	(hl), e
-;main.c:1819: set_sprite_tile(enemy->spritids[0], tile0);
+;main.c:1821: set_sprite_tile(enemy->spritids[0], tile0);
 	jr	00118$
 00104$:
-;main.c:1821: else if(enemy->anim == 1)
+;main.c:1823: else if(enemy->anim == 1)
 	dec	a
 	jr	NZ, 00118$
-;main.c:1823: set_sprite_tile(enemy->spritids[0], tile1);
+;main.c:1825: set_sprite_tile(enemy->spritids[0], tile1);
 	ldhl	sp,	#3
 	ld	e, (hl)
 	ld	a, (bc)
@@ -7581,19 +7636,19 @@ _animate_enemy::
 	inc	hl
 	inc	hl
 	ld	(hl), e
-;main.c:1823: set_sprite_tile(enemy->spritids[0], tile1);
+;main.c:1825: set_sprite_tile(enemy->spritids[0], tile1);
 	jr	00118$
 00110$:
-;main.c:1826: else if(enemy->type == ENEMY_TYPE_BOSS)
+;main.c:1828: else if(enemy->type == ENEMY_TYPE_BOSS)
 	dec	d
 	jr	NZ, 00118$
-;main.c:1830: for(UINT8 i = 0; i < 4; i++)
+;main.c:1832: for(UINT8 i = 0; i < 4; i++)
 	ld	e, #0x00
 00116$:
 	ld	a, e
 	sub	a, #0x04
 	jr	NC, 00118$
-;main.c:1832: set_sprite_tile(enemy->spritids[i], 22 + i);
+;main.c:1834: set_sprite_tile(enemy->spritids[i], 22 + i);
 	ld	a, e
 	add	a, #0x16
 	ldhl	sp,	#0
@@ -7619,54 +7674,54 @@ _animate_enemy::
 	ld	a, (hl)
 	pop	hl
 	ld	(hl), a
-;main.c:1830: for(UINT8 i = 0; i < 4; i++)
+;main.c:1832: for(UINT8 i = 0; i < 4; i++)
 	inc	e
 	jr	00116$
 00118$:
-;main.c:1835: }
+;main.c:1837: }
 	inc	sp
 	pop	hl
 	inc	sp
 	jp	(hl)
-;main.c:1836: void enemy_check_borders(struct Enemy* enemy)
+;main.c:1838: void enemy_check_borders(struct Enemy* enemy)
 ;	---------------------------------
 ; Function enemy_check_borders
 ; ---------------------------------
 _enemy_check_borders::
-;main.c:1838: if (enemy->x < MIN_ENEMY_X)
+;main.c:1840: if (enemy->x < MIN_ENEMY_X)
 	ld	hl, #0x0004
 	add	hl, de
 	ld	a, (hl)
 	sub	a, #0x18
 	jr	NC, 00102$
-;main.c:1840: enemy->x = MIN_ENEMY_X;
+;main.c:1842: enemy->x = MIN_ENEMY_X;
 	ld	(hl), #0x18
 00102$:
-;main.c:1842: if (enemy->x > MAX_ENEMY_X)
+;main.c:1844: if (enemy->x > MAX_ENEMY_X)
 	ld	a, (hl)
 	cp	a, #0x91
 	jr	C, 00104$
-;main.c:1844: enemy->x = MAX_ENEMY_X;
+;main.c:1846: enemy->x = MAX_ENEMY_X;
 	ld	(hl), #0x90
 00104$:
-;main.c:1846: if (enemy->y < MIN_ENEMY_Y)
+;main.c:1848: if (enemy->y < MIN_ENEMY_Y)
 	ld	hl, #0x0005
 	add	hl, de
 	ld	a, (hl)
 	sub	a, #0x1c
 	jr	NC, 00106$
-;main.c:1848: enemy->y = MIN_ENEMY_Y;
+;main.c:1850: enemy->y = MIN_ENEMY_Y;
 	ld	(hl), #0x1c
 00106$:
-;main.c:1850: if (enemy->y > MAX_ENEMY_Y)
+;main.c:1852: if (enemy->y > MAX_ENEMY_Y)
 	ld	a, (hl)
 	cp	a, #0x79
 	ret	C
-;main.c:1852: enemy->y = MAX_ENEMY_Y;
+;main.c:1854: enemy->y = MAX_ENEMY_Y;
 	ld	(hl), #0x78
-;main.c:1854: }
+;main.c:1856: }
 	ret
-;main.c:1857: void character_set_sprite(struct GameCharacter* character, UINT8 anim_state)
+;main.c:1859: void character_set_sprite(struct GameCharacter* character, UINT8 anim_state)
 ;	---------------------------------
 ; Function character_set_sprite
 ; ---------------------------------
@@ -7674,11 +7729,11 @@ _character_set_sprite::
 	ld	c, e
 	ld	b, d
 	ld	e, a
-;main.c:1862: character->anim = anim_state;  // Set animation state in struct
+;main.c:1864: character->anim = anim_state;  // Set animation state in struct
 	ld	hl, #0x0008
 	add	hl, bc
 	ld	(hl), e
-;main.c:1864: if(anim_state == 0) // down walking
+;main.c:1866: if(anim_state == 0) // down walking
 	ld	a, e
 	or	a, a
 	jr	NZ, 00122$
@@ -7688,7 +7743,7 @@ _character_set_sprite::
 	xor	a, a
 	ld	(hl+), a
 	ld	(hl), a
-;main.c:1868: character->spritids[0] = 0;
+;main.c:1870: character->spritids[0] = 0;
 	xor	a, a
 	ld	(bc), a
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -7697,7 +7752,7 @@ _character_set_sprite::
 	ld	a, #0x01
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1871: character->spritids[1] = 1;
+;main.c:1873: character->spritids[1] = 1;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7708,7 +7763,7 @@ _character_set_sprite::
 	ld	a, #0x02
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1874: character->spritids[3] = 2;
+;main.c:1876: character->spritids[3] = 2;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7721,7 +7776,7 @@ _character_set_sprite::
 	ld	a, #0x03
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1877: character->spritids[2] = 3;
+;main.c:1879: character->spritids[2] = 3;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7729,7 +7784,7 @@ _character_set_sprite::
 	ld	(hl), #0x03
 	jp	00123$
 00122$:
-;main.c:1879: else if(anim_state == 1) // down standing
+;main.c:1881: else if(anim_state == 1) // down standing
 	ld	a, e
 	dec	a
 	jr	NZ, 00119$
@@ -7739,7 +7794,7 @@ _character_set_sprite::
 	xor	a, a
 	ld	(hl+), a
 	ld	(hl), a
-;main.c:1883: character->spritids[0] = 0;
+;main.c:1885: character->spritids[0] = 0;
 	xor	a, a
 	ld	(bc), a
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -7748,7 +7803,7 @@ _character_set_sprite::
 	ld	a, #0x01
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1886: character->spritids[1] = 1;
+;main.c:1888: character->spritids[1] = 1;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7759,7 +7814,7 @@ _character_set_sprite::
 	ld	a, #0x02
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1889: character->spritids[2] = 2;
+;main.c:1891: character->spritids[2] = 2;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7771,7 +7826,7 @@ _character_set_sprite::
 	ld	a, #0x03
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1892: character->spritids[3] = 3;
+;main.c:1894: character->spritids[3] = 3;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7780,7 +7835,7 @@ _character_set_sprite::
 	ld	(hl), #0x03
 	jp	00123$
 00119$:
-;main.c:1894: else if(anim_state == 2) // left walking
+;main.c:1896: else if(anim_state == 2) // left walking
 	ld	a, e
 	sub	a, #0x02
 	jr	NZ, 00116$
@@ -7790,7 +7845,7 @@ _character_set_sprite::
 	ld	a, #0x04
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1898: character->spritids[0] = 0;
+;main.c:1900: character->spritids[0] = 0;
 	xor	a, a
 	ld	(bc), a
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -7799,7 +7854,7 @@ _character_set_sprite::
 	ld	a, #0x05
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1901: character->spritids[1] = 1;
+;main.c:1903: character->spritids[1] = 1;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7810,7 +7865,7 @@ _character_set_sprite::
 	ld	a, #0x06
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1904: character->spritids[2] = 2;
+;main.c:1906: character->spritids[2] = 2;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7822,7 +7877,7 @@ _character_set_sprite::
 	ld	a, #0x07
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1907: character->spritids[3] = 3;
+;main.c:1909: character->spritids[3] = 3;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7831,7 +7886,7 @@ _character_set_sprite::
 	ld	(hl), #0x03
 	jp	00123$
 00116$:
-;main.c:1909: else if(anim_state == 3) // left standing
+;main.c:1911: else if(anim_state == 3) // left standing
 	ld	a, e
 	sub	a, #0x03
 	jr	NZ, 00113$
@@ -7841,7 +7896,7 @@ _character_set_sprite::
 	ld	a, #0x08
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1913: character->spritids[0] = 0;
+;main.c:1915: character->spritids[0] = 0;
 	xor	a, a
 	ld	(bc), a
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -7850,7 +7905,7 @@ _character_set_sprite::
 	ld	a, #0x09
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1916: character->spritids[1] = 1;
+;main.c:1918: character->spritids[1] = 1;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7861,7 +7916,7 @@ _character_set_sprite::
 	ld	a, #0x0a
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1919: character->spritids[2] = 2;
+;main.c:1921: character->spritids[2] = 2;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7873,7 +7928,7 @@ _character_set_sprite::
 	ld	a, #0x0b
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1922: character->spritids[3] = 3;
+;main.c:1924: character->spritids[3] = 3;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7882,7 +7937,7 @@ _character_set_sprite::
 	ld	(hl), #0x03
 	jp	00123$
 00113$:
-;main.c:1924: else if(anim_state == 4) // right walking
+;main.c:1926: else if(anim_state == 4) // right walking
 	ld	a, e
 	sub	a, #0x04
 	jr	NZ, 00110$
@@ -7892,7 +7947,7 @@ _character_set_sprite::
 	ld	a, #0x05
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1928: character->spritids[0] = 0;
+;main.c:1930: character->spritids[0] = 0;
 	xor	a, a
 	ld	(bc), a
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -7901,7 +7956,7 @@ _character_set_sprite::
 	ld	a, #0x04
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1931: character->spritids[1] = 1;
+;main.c:1933: character->spritids[1] = 1;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7912,7 +7967,7 @@ _character_set_sprite::
 	ld	a, #0x07
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1934: character->spritids[2] = 2;
+;main.c:1936: character->spritids[2] = 2;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7924,7 +7979,7 @@ _character_set_sprite::
 	ld	a, #0x06
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1937: character->spritids[3] = 3;
+;main.c:1939: character->spritids[3] = 3;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7933,7 +7988,7 @@ _character_set_sprite::
 	ld	(hl), #0x03
 	jp	00123$
 00110$:
-;main.c:1939: else if(anim_state == 5) // right standing
+;main.c:1941: else if(anim_state == 5) // right standing
 	ld	a, e
 	sub	a, #0x05
 	jr	NZ, 00107$
@@ -7943,7 +7998,7 @@ _character_set_sprite::
 	ld	a, #0x09
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1943: character->spritids[0] = 0;
+;main.c:1945: character->spritids[0] = 0;
 	xor	a, a
 	ld	(bc), a
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -7952,6 +8007,7 @@ _character_set_sprite::
 	ld	a, #0x08
 	ld	(hl+), a
 	ld	(hl), #0x20
+;main.c:1948: character->spritids[1] = 1;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7962,7 +8018,7 @@ _character_set_sprite::
 	ld	a, #0x0b
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1949: character->spritids[2] = 2;
+;main.c:1951: character->spritids[2] = 2;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7974,7 +8030,7 @@ _character_set_sprite::
 	ld	a, #0x0a
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1952: character->spritids[3] = 3;
+;main.c:1954: character->spritids[3] = 3;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -7983,7 +8039,7 @@ _character_set_sprite::
 	ld	(hl), #0x03
 	jr	00123$
 00107$:
-;main.c:1954: else if(anim_state == 6) // up walking
+;main.c:1956: else if(anim_state == 6) // up walking
 	ld	a, e
 	sub	a, #0x06
 	jr	NZ, 00104$
@@ -7993,7 +8049,7 @@ _character_set_sprite::
 	ld	a, #0x0c
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1958: character->spritids[0] = 0;
+;main.c:1960: character->spritids[0] = 0;
 	xor	a, a
 	ld	(bc), a
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -8002,7 +8058,7 @@ _character_set_sprite::
 	ld	a, #0x0d
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1961: character->spritids[1] = 1;
+;main.c:1963: character->spritids[1] = 1;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -8013,7 +8069,7 @@ _character_set_sprite::
 	ld	a, #0x0e
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1964: character->spritids[2] = 2;
+;main.c:1966: character->spritids[2] = 2;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -8025,7 +8081,7 @@ _character_set_sprite::
 	ld	a, #0x0f
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1967: character->spritids[3] = 3;
+;main.c:1969: character->spritids[3] = 3;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -8034,7 +8090,7 @@ _character_set_sprite::
 	ld	(hl), #0x03
 	jr	00123$
 00104$:
-;main.c:1969: else if(anim_state == 7) // up standing
+;main.c:1971: else if(anim_state == 7) // up standing
 	ld	a, e
 	sub	a, #0x07
 	jr	NZ, 00123$
@@ -8044,7 +8100,7 @@ _character_set_sprite::
 	ld	a, #0x0c
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1973: character->spritids[0] = 0;
+;main.c:1975: character->spritids[0] = 0;
 	xor	a, a
 	ld	(bc), a
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -8053,7 +8109,7 @@ _character_set_sprite::
 	ld	a, #0x0d
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:1976: character->spritids[1] = 1;
+;main.c:1978: character->spritids[1] = 1;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -8064,7 +8120,7 @@ _character_set_sprite::
 	ld	a, #0x0f
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1979: character->spritids[2] = 2;
+;main.c:1981: character->spritids[2] = 2;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -8076,7 +8132,7 @@ _character_set_sprite::
 	ld	a, #0x0e
 	ld	(hl+), a
 	ld	(hl), #0x20
-;main.c:1982: character->spritids[3] = 3;
+;main.c:1984: character->spritids[3] = 3;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -8084,7 +8140,7 @@ _character_set_sprite::
 	inc	hl
 	ld	(hl), #0x03
 00123$:
-;main.c:1985: move_player(character, character->x, character->y);
+;main.c:1987: move_player(character, character->x, character->y);
 	ld	hl, #0x0005
 	add	hl, bc
 	ld	d, (hl)
@@ -8096,9 +8152,9 @@ _character_set_sprite::
 	ld	e, c
 	ld	d, b
 	call	_move_player
-;main.c:1986: }
+;main.c:1988: }
 	ret
-;main.c:1988: void setup_character(struct GameCharacter* character, UINT8 x, UINT8 y)
+;main.c:1990: void setup_character(struct GameCharacter* character, UINT8 x, UINT8 y)
 ;	---------------------------------
 ; Function setup_character
 ; ---------------------------------
@@ -8108,7 +8164,7 @@ _setup_character::
 	ld	b, d
 	ldhl	sp,	#4
 	ld	(hl), a
-;main.c:1990: character->x = x;
+;main.c:1992: character->x = x;
 	ld	hl, #0x0004
 	add	hl, bc
 	inc	sp
@@ -8119,7 +8175,7 @@ _setup_character::
 	ldhl	sp,	#4
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1991: character->y = y;
+;main.c:1993: character->y = y;
 	ld	hl, #0x0005
 	add	hl, bc
 	push	hl
@@ -8136,15 +8192,15 @@ _setup_character::
 	ldhl	sp,	#7
 	ld	a, (hl)
 	ld	(de), a
-;main.c:1992: character->width = 16;
+;main.c:1994: character->width = 16;
 	ld	hl, #0x0006
 	add	hl, bc
 	ld	(hl), #0x10
-;main.c:1993: character->height = 16;
+;main.c:1995: character->height = 16;
 	ld	hl, #0x0007
 	add	hl, bc
 	ld	(hl), #0x10
-;main.c:1994: character->anim = 0;
+;main.c:1996: character->anim = 0;
 	ld	hl, #0x0008
 	add	hl, bc
 	ld	(hl), #0x00
@@ -8154,7 +8210,7 @@ _setup_character::
 	xor	a, a
 	ld	(hl+), a
 	ld	(hl), a
-;main.c:1998: character->spritids[0] = 0;
+;main.c:2000: character->spritids[0] = 0;
 	xor	a, a
 	ld	(bc), a
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -8163,7 +8219,7 @@ _setup_character::
 	ld	a, #0x01
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:2001: character->spritids[1] = 1;
+;main.c:2003: character->spritids[1] = 1;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -8174,7 +8230,7 @@ _setup_character::
 	ld	a, #0x02
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:2004: character->spritids[2] = 2;
+;main.c:2006: character->spritids[2] = 2;
 	ld	l, c
 	ld	h, b
 	inc	hl
@@ -8186,14 +8242,14 @@ _setup_character::
 	ld	a, #0x03
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:2007: character->spritids[3] = 3;
+;main.c:2009: character->spritids[3] = 3;
 	ld	l, c
 	ld	h, b
 	inc	hl
 	inc	hl
 	inc	hl
 	ld	(hl), #0x03
-;main.c:2009: move_player(character, character->x, character->y);
+;main.c:2011: move_player(character, character->x, character->y);
 	ldhl	sp,#2
 	ld	a, (hl+)
 	ld	e, a
@@ -8207,37 +8263,37 @@ _setup_character::
 	ld	e, c
 	ld	d, b
 	call	_move_player
-;main.c:2010: }
+;main.c:2012: }
 	add	sp, #5
 	pop	hl
 	inc	sp
 	jp	(hl)
-;main.c:2012: void setup_player(void)
+;main.c:2014: void setup_player(void)
 ;	---------------------------------
 ; Function setup_player
 ; ---------------------------------
 _setup_player::
-;main.c:2014: setup_character(&girl, PLAYER_SPAWN_X, PLAYER_SPAWN_Y);
+;main.c:2016: setup_character(&girl, PLAYER_SPAWN_X, PLAYER_SPAWN_Y);
 	ld	a, #0x24
 	push	af
 	inc	sp
 	ld	a, #0x50
 	ld	de, #_girl
 	call	_setup_character
-;main.c:2015: }
+;main.c:2017: }
 	ret
-;main.c:2017: void setupslime(void)
+;main.c:2019: void setupslime(void)
 ;	---------------------------------
 ; Function setupslime
 ; ---------------------------------
 _setupslime::
-;main.c:2019: slime.x = rand() % 128 + 16;
+;main.c:2021: slime.x = rand() % 128 + 16;
 	call	_rand
 	ld	a, e
 	res	7, a
 	add	a, #0x10
 	ld	(#(_slime + 4)),a
-;main.c:2020: slime.y = rand() % 96 + 24;
+;main.c:2022: slime.y = rand() % 96 + 24;
 	call	_rand
 	ld	a, e
 	ld	e, #0x60
@@ -8245,13 +8301,13 @@ _setupslime::
 	ld	a, c
 	add	a, #0x18
 	ld	hl, #(_slime + 5)
-;main.c:2021: slime.width = 8;
+;main.c:2023: slime.width = 8;
 	ld	(hl+), a
 	ld	(hl), #0x08
-;main.c:2022: slime.height = 8;
+;main.c:2024: slime.height = 8;
 	ld	hl, #_slime + 7
 	ld	(hl), #0x08
-;main.c:2023: slime.anim = 0;
+;main.c:2025: slime.anim = 0;
 	ld	hl, #_slime + 8
 	ld	(hl), #0x00
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -8260,7 +8316,7 @@ _setupslime::
 	ld	a, #0x10
 	ld	(hl+), a
 	ld	(hl), #0x10
-;main.c:2027: slime.spritids[0] = 22;
+;main.c:2029: slime.spritids[0] = 22;
 	ld	hl, #_slime
 	ld	(hl), #0x16
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -8269,10 +8325,10 @@ _setupslime::
 	ld	a, #0x11
 	ld	(hl+), a
 	ld	(hl), #0x10
-;main.c:2030: slime.spritids[1] = 23;
+;main.c:2032: slime.spritids[1] = 23;
 	ld	hl, #_slime + 1
 	ld	(hl), #0x17
-;main.c:2032: move_enemy_small(&slime, slime.x, slime.y);
+;main.c:2034: move_enemy_small(&slime, slime.x, slime.y);
 	ld	hl, #(_slime + 5)
 	ld	b, (hl)
 	ld	a, (#(_slime + 4) + 0)
@@ -8280,26 +8336,26 @@ _setupslime::
 	inc	sp
 	ld	de, #_slime
 	call	_move_enemy_small
-;main.c:2033: }
+;main.c:2035: }
 	ret
-;main.c:2035: void setupsword(void)
+;main.c:2037: void setupsword(void)
 ;	---------------------------------
 ; Function setupsword
 ; ---------------------------------
 _setupsword::
-;main.c:2037: sword.x = 100;
+;main.c:2039: sword.x = 100;
 	ld	hl, #_sword + 2
 	ld	(hl), #0x64
-;main.c:2038: sword.y = 100;
+;main.c:2040: sword.y = 100;
 	ld	hl, #_sword + 3
 	ld	(hl), #0x64
-;main.c:2039: sword.width = 8;
+;main.c:2041: sword.width = 8;
 	ld	hl, #_sword + 4
 	ld	(hl), #0x08
-;main.c:2040: sword.height = 8;
+;main.c:2042: sword.height = 8;
 	ld	hl, #_sword + 5
 	ld	(hl), #0x08
-;main.c:2041: sword.anim = 0;
+;main.c:2043: sword.anim = 0;
 	ld	hl, #_sword + 6
 	ld	(hl), #0x00
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -8308,7 +8364,7 @@ _setupsword::
 	ld	a, #0x12
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:2046: sword.spritids[0] = 4;
+;main.c:2048: sword.spritids[0] = 4;
 	ld	hl, #_sword
 	ld	(hl), #0x04
 ;c:\gbdk\include\gb\gb.h:1887: shadow_OAM[nb].tile=tile;
@@ -8317,24 +8373,24 @@ _setupsword::
 	ld	a, #0x13
 	ld	(hl+), a
 	ld	(hl), #0x00
-;main.c:2049: sword.spritids[1] = 5;
+;main.c:2051: sword.spritids[1] = 5;
 	ld	hl, #_sword + 1
 	ld	(hl), #0x05
-;main.c:2052: }
+;main.c:2054: }
 	ret
-;main.c:2055: void main(void)
+;main.c:2057: void main(void)
 ;	---------------------------------
 ; Function main
 ; ---------------------------------
 _main::
 	add	sp, #-15
-;main.c:2057: init_title_screen();
+;main.c:2059: init_title_screen();
 	call	_init_title_screen
-;main.c:2059: while(1)
+;main.c:2061: while(1)
 00257$:
-;main.c:2061: UINT8 current_pad = joypad();
+;main.c:2063: UINT8 current_pad = joypad();
 	call	_joypad
-;main.c:2063: if((current_pad & J_START) && !(prev_pad & J_START))
+;main.c:2065: if((current_pad & J_START) && !(prev_pad & J_START))
 	ldhl	sp,#5
 	ld	(hl), a
 	ld	a, (hl+)
@@ -8347,21 +8403,21 @@ _main::
 	ld	a, (_prev_pad)
 	rlca
 	jp	C, 00117$
-;main.c:2065: if(gamestate == 0)
+;main.c:2067: if(gamestate == 0)
 	ld	hl, #_gamestate
 	ld	a, (hl)
 	or	a, a
 	jp	NZ, 00114$
-;main.c:2067: gamestate = 1;
+;main.c:2069: gamestate = 1;
 	ld	(hl), #0x01
-;main.c:2068: initrand(DIV_REG);
+;main.c:2070: initrand(DIV_REG);
 	ldh	a, (_DIV_REG + 0)
 	ld	b, #0x00
 	ld	c, a
 	push	bc
 	call	_initrand
 	pop	hl
-;main.c:2069: font_set(ui_font);
+;main.c:2071: font_set(ui_font);
 	ld	a, (_ui_font)
 	ld	e, a
 	ld	hl, #_ui_font + 1
@@ -8369,16 +8425,16 @@ _main::
 	push	de
 	call	_font_set
 	pop	hl
-;main.c:2070: audio_init();
+;main.c:2072: audio_init();
 	call	_audio_init
-;main.c:2072: set_bkg_data(37, 8, backgroundtiles);
+;main.c:2074: set_bkg_data(37, 8, backgroundtiles);
 	ld	de, #_backgroundtiles
 	push	de
 	ld	hl, #0x825
 	push	hl
 	call	_set_bkg_data
 	add	sp, #4
-;main.c:2073: set_bkg_tiles(0, 0, 20, 16, backgroundmap);
+;main.c:2075: set_bkg_tiles(0, 0, 20, 16, backgroundmap);
 	ld	de, #_backgroundmap
 	push	de
 	ld	hl, #0x1014
@@ -8388,7 +8444,7 @@ _main::
 	push	af
 	call	_set_bkg_tiles
 	add	sp, #6
-;main.c:2075: set_win_tiles(0, 0, 20, 2, windowmap);
+;main.c:2077: set_win_tiles(0, 0, 20, 2, windowmap);
 	ld	de, #_windowmap
 	push	de
 	ld	hl, #0x214
@@ -8403,65 +8459,65 @@ _main::
 	ldh	(_WX_REG + 0), a
 	ld	a, #0x80
 	ldh	(_WY_REG + 0), a
-;main.c:2080: set_sprite_data(0, 22, Girl);  // Girl + Slime + Sword tiles (0-21)
+;main.c:2082: set_sprite_data(0, 22, Girl);  // Girl + Slime + Sword tiles (0-21)
 	ld	de, #_Girl
 	push	de
 	ld	hl, #0x1600
 	push	hl
 	call	_set_sprite_data
 	add	sp, #4
-;main.c:2081: set_sprite_data(22, 9, Boss);   // Boss tiles (22-30) - includes attack animation frames
+;main.c:2083: set_sprite_data(22, 9, Boss);   // Boss tiles (22-30) - includes attack animation frames
 	ld	de, #_Boss
 	push	de
 	ld	hl, #0x916
 	push	hl
 	call	_set_sprite_data
 	add	sp, #4
-;main.c:2082: setup_player();
+;main.c:2084: setup_player();
 	call	_setup_player
-;main.c:2083: init_player_stats();
+;main.c:2085: init_player_stats();
 	call	_init_player_stats
-;main.c:2085: stage = 1;
+;main.c:2087: stage = 1;
 	ld	hl, #_stage
 	ld	(hl), #0x01
-;main.c:2086: enemy_hp_multiplier = 1;
+;main.c:2088: enemy_hp_multiplier = 1;
 	ld	hl, #_enemy_hp_multiplier
 	ld	(hl), #0x01
-;main.c:2087: update_window_stats_ui();
+;main.c:2089: update_window_stats_ui();
 	call	_update_window_stats_ui
-;main.c:2088: setupsword();
+;main.c:2090: setupsword();
 	call	_setupsword
-;main.c:2089: load_room(room);  // Initialize room after sprite data is loaded
+;main.c:2091: load_room(room);  // Initialize room after sprite data is loaded
 	ld	a, (_room)
 	call	_load_room
-;main.c:2097: BGP_REG  = 0xE4; // Background palette (light fill uses C1)
+;main.c:2099: BGP_REG  = 0xE4; // Background palette (light fill uses C1)
 	ld	a, #0xe4
 	ldh	(_BGP_REG + 0), a
-;main.c:2098: OBP0_REG = 0xE0; // Sprite palette 0: Girl/Sword (old colors)
+;main.c:2100: OBP0_REG = 0xE0; // Sprite palette 0: Girl/Sword (old colors)
 	ld	a, #0xe0
 	ldh	(_OBP0_REG + 0), a
-;main.c:2099: OBP1_REG = 0xE4; // Sprite palette 1: Slimes (clear, light, dark, black)
+;main.c:2101: OBP1_REG = 0xE4; // Sprite palette 1: Slimes (clear, light, dark, black)
 	ld	a, #0xe4
 	ldh	(_OBP1_REG + 0), a
-;main.c:2100: SHOW_SPRITES;
+;main.c:2102: SHOW_SPRITES;
 	ldh	a, (_LCDC_REG + 0)
 	or	a, #0x02
 	ldh	(_LCDC_REG + 0), a
-;main.c:2101: SHOW_BKG;
+;main.c:2103: SHOW_BKG;
 	ldh	a, (_LCDC_REG + 0)
 	or	a, #0x01
 	ldh	(_LCDC_REG + 0), a
-;main.c:2102: SHOW_WIN;
+;main.c:2104: SHOW_WIN;
 	ldh	a, (_LCDC_REG + 0)
 	or	a, #0x20
 	ldh	(_LCDC_REG + 0), a
-;main.c:2103: DISPLAY_ON;
+;main.c:2105: DISPLAY_ON;
 	ldh	a, (_LCDC_REG + 0)
 	or	a, #0x80
 	ldh	(_LCDC_REG + 0), a
 	jp	00117$
 00114$:
-;main.c:2105: else if(gamestate == 1 && player_stats.is_dead == 1)
+;main.c:2107: else if(gamestate == 1 && player_stats.is_dead == 1)
 	ld	a, (#_gamestate)
 	dec	a
 	ld	a, #0x01
@@ -8472,51 +8528,51 @@ _main::
 	or	a, a
 	jr	Z, 00110$
 	ld	a, (#(_player_stats + 6) + 0)
-;main.c:2107: room = 0;
-;main.c:2108: locktimer = 0;
+;main.c:2109: room = 0;
+;main.c:2110: locktimer = 0;
 	dec	a
 	jr	NZ, 00110$
 	ld	(#_room), a
 	ld	(#_locktimer),a
-;main.c:2109: knockback_timer = 0;
-;main.c:2110: knockback_dx = 0;
+;main.c:2111: knockback_timer = 0;
+;main.c:2112: knockback_dx = 0;
 	xor	a, a
 	ld	(#_knockback_timer), a
 	ld	(#_knockback_dx),a
-;main.c:2111: knockback_dy = 0;
-;main.c:2112: room_cleared = 0;
+;main.c:2113: knockback_dy = 0;
+;main.c:2114: room_cleared = 0;
 	xor	a, a
 	ld	(#_knockback_dy), a
 	ld	(#_room_cleared),a
-;main.c:2113: reward_active = 0;
-;main.c:2114: reward_claimed = 0;
+;main.c:2115: reward_active = 0;
+;main.c:2116: reward_claimed = 0;
 	xor	a, a
 	ld	(#_reward_active), a
 	ld	(#_reward_claimed),a
-;main.c:2115: can_transition = 0;
-;main.c:2116: room_clear_timer = 0;
+;main.c:2117: can_transition = 0;
+;main.c:2118: room_clear_timer = 0;
 	xor	a, a
 	ld	(#_can_transition), a
 	ld	(#_room_clear_timer),a
-;main.c:2117: transition_cooldown_timer = 0;
+;main.c:2119: transition_cooldown_timer = 0;
 	xor	a, a
 	ld	(#_transition_cooldown_timer),a
-;main.c:2119: setup_player();
+;main.c:2121: setup_player();
 	call	_setup_player
-;main.c:2120: init_player_stats();
+;main.c:2122: init_player_stats();
 	call	_init_player_stats
-;main.c:2122: stage = 1;
+;main.c:2124: stage = 1;
 	ld	hl, #_stage
 	ld	(hl), #0x01
-;main.c:2123: enemy_hp_multiplier = 1;
+;main.c:2125: enemy_hp_multiplier = 1;
 	ld	hl, #_enemy_hp_multiplier
 	ld	(hl), #0x01
-;main.c:2124: setupsword();
+;main.c:2126: setupsword();
 	call	_setupsword
-;main.c:2125: load_room(room);
+;main.c:2127: load_room(room);
 	ld	a, (_room)
 	call	_load_room
-;main.c:2127: set_win_tiles(0, 0, 20, 2, windowmap);
+;main.c:2129: set_win_tiles(0, 0, 20, 2, windowmap);
 	ld	de, #_windowmap
 	push	de
 	ld	hl, #0x214
@@ -8526,19 +8582,19 @@ _main::
 	push	af
 	call	_set_win_tiles
 	add	sp, #6
-;main.c:2128: hide_pause_ui();
+;main.c:2130: hide_pause_ui();
 	call	_hide_pause_ui
-;main.c:2129: hide_room_clear_ui();
+;main.c:2131: hide_room_clear_ui();
 	call	_hide_room_clear_ui
-;main.c:2130: hide_reward_ui();
+;main.c:2132: hide_reward_ui();
 	call	_hide_reward_ui
-;main.c:2131: hide_ready_ui();
+;main.c:2133: hide_ready_ui();
 	call	_hide_ready_ui
-;main.c:2132: update_window_stats_ui();
+;main.c:2134: update_window_stats_ui();
 	call	_update_window_stats_ui
 	jr	00117$
 00110$:
-;main.c:2134: else if(gamestate == 1 && room_cleared == 0 && reward_active == 0 && can_transition == 0)
+;main.c:2136: else if(gamestate == 1 && room_cleared == 0 && reward_active == 0 && can_transition == 0)
 	ld	a, c
 	or	a, a
 	jr	Z, 00104$
@@ -8551,36 +8607,36 @@ _main::
 	ld	a, (#_can_transition)
 	or	a, a
 	jr	NZ, 00104$
-;main.c:2136: gamestate = 2;
+;main.c:2138: gamestate = 2;
 	ld	hl, #_gamestate
 	ld	(hl), #0x02
-;main.c:2137: show_pause_ui();
+;main.c:2139: show_pause_ui();
 	call	_show_pause_ui
 	jr	00117$
 00104$:
-;main.c:2139: else if(gamestate == 2)
+;main.c:2141: else if(gamestate == 2)
 	ld	a, (#_gamestate)
 	sub	a, #0x02
 	jr	NZ, 00117$
-;main.c:2141: gamestate = 1;
+;main.c:2143: gamestate = 1;
 	ld	hl, #_gamestate
 	ld	(hl), #0x01
-;main.c:2142: hide_pause_ui();
+;main.c:2144: hide_pause_ui();
 	call	_hide_pause_ui
 00117$:
-;main.c:2146: if(gamestate == 0)
+;main.c:2148: if(gamestate == 0)
 	ld	a, (#_gamestate)
 	or	a, a
 	jr	NZ, 00120$
-;main.c:2148: update_title_screen();
+;main.c:2150: update_title_screen();
 	call	_update_title_screen
 00120$:
-;main.c:2151: if(gamestate == 1)
+;main.c:2153: if(gamestate == 1)
 	ld	a, (#_gamestate)
 	dec	a
 	jp	NZ, 00255$
-;main.c:2153: struct GameCharacter* active_player = &girl;
-;main.c:2155: if(player_stats.is_dead == 0 && locktimer == 0 && knockback_timer == 0 && enemy_start_delay_timer == 0)
+;main.c:2155: struct GameCharacter* active_player = &girl;
+;main.c:2157: if(player_stats.is_dead == 0 && locktimer == 0 && knockback_timer == 0 && enemy_start_delay_timer == 0)
 	ld	a, (#(_player_stats + 6) + 0)
 	or	a, a
 	jp	NZ, 00182$
@@ -8593,46 +8649,46 @@ _main::
 	ld	a, (#_enemy_start_delay_timer)
 	or	a, a
 	jp	NZ, 00182$
-;main.c:2157: if(joypad() & J_LEFT)
+;main.c:2159: if(joypad() & J_LEFT)
 	call	_joypad
-;main.c:2161: if(active_player->x > MIN_GIRL_X)
-;main.c:2164: if(distance_to_min_x < player_stats.speed)
-;main.c:2174: if(active_player->anim != 2 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
-;main.c:2157: if(joypad() & J_LEFT)
+;main.c:2163: if(active_player->x > MIN_GIRL_X)
+;main.c:2166: if(distance_to_min_x < player_stats.speed)
+;main.c:2176: if(active_player->anim != 2 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+;main.c:2159: if(joypad() & J_LEFT)
 	bit	1,a
 	jr	Z, 00136$
-;main.c:2159: direction = 2;
+;main.c:2161: direction = 2;
 	ld	hl, #_direction
 	ld	(hl), #0x02
-;main.c:2160: move_weapon(&sword, active_player);
+;main.c:2162: move_weapon(&sword, active_player);
 	ld	bc, #_girl
 	ld	de, #_sword
 	call	_move_weapon
-;main.c:2161: if(active_player->x > MIN_GIRL_X)
+;main.c:2163: if(active_player->x > MIN_GIRL_X)
 	ld	hl, #(_girl + 4)
 	ld	c, (hl)
 	ld	a, #0x17
 	sub	a, c
 	jr	NC, 00125$
-;main.c:2163: UINT8 distance_to_min_x = active_player->x - MIN_GIRL_X;
+;main.c:2165: UINT8 distance_to_min_x = active_player->x - MIN_GIRL_X;
 	ld	a, c
 	add	a, #0xe9
-;main.c:2164: if(distance_to_min_x < player_stats.speed)
+;main.c:2166: if(distance_to_min_x < player_stats.speed)
 	ld	hl, #(_player_stats + 4)
 	ld	b, (hl)
 	sub	a, b
 	jr	NC, 00122$
-;main.c:2166: active_player->x = MIN_GIRL_X;
+;main.c:2168: active_player->x = MIN_GIRL_X;
 	ld	hl, #(_girl + 4)
 	ld	(hl), #0x17
 	jr	00125$
 00122$:
-;main.c:2170: active_player->x -= player_stats.speed;
+;main.c:2172: active_player->x -= player_stats.speed;
 	ld	a, c
 	sub	a, b
 	ld	(#(_girl + 4)),a
 00125$:
-;main.c:2174: if(active_player->anim != 2 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+;main.c:2176: if(active_player->anim != 2 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
 	ld	a, (#(_girl + 8) + 0)
 	sub	a, #0x02
 	jr	Z, 00131$
@@ -8642,13 +8698,13 @@ _main::
 	call	_joypad
 	bit	3, a
 	jr	NZ, 00131$
-;main.c:2176: character_set_sprite(active_player, 2);
+;main.c:2178: character_set_sprite(active_player, 2);
 	ld	a, #0x02
 	ld	de, #_girl
 	call	_character_set_sprite
 	jr	00136$
 00131$:
-;main.c:2178: else if(active_player->anim != 3 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+;main.c:2180: else if(active_player->anim != 3 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
 	ld	a, (#(_girl + 8) + 0)
 	sub	a, #0x03
 	jr	Z, 00136$
@@ -8658,51 +8714,51 @@ _main::
 	call	_joypad
 	bit	3, a
 	jr	NZ, 00136$
-;main.c:2180: character_set_sprite(active_player, 3);
+;main.c:2182: character_set_sprite(active_player, 3);
 	ld	a, #0x03
 	ld	de, #_girl
 	call	_character_set_sprite
 00136$:
-;main.c:2183: if(joypad() & J_RIGHT)
+;main.c:2185: if(joypad() & J_RIGHT)
 	call	_joypad
 	rrca
 	jr	NC, 00152$
-;main.c:2185: direction = 3;
+;main.c:2187: direction = 3;
 	ld	hl, #_direction
 	ld	(hl), #0x03
-;main.c:2186: move_weapon(&sword, active_player);
+;main.c:2188: move_weapon(&sword, active_player);
 	ld	bc, #_girl
 	ld	de, #_sword
 	call	_move_weapon
-;main.c:2187: if(active_player->x < MAX_GIRL_X)
+;main.c:2189: if(active_player->x < MAX_GIRL_X)
 	ld	a, (#(_girl + 4) + 0)
 	ldhl	sp,#13
 	ld	(hl), a
 	ld	a, (hl)
 	sub	a, #0x8a
 	jr	NC, 00141$
-;main.c:2189: UINT8 distance_to_max_x = MAX_GIRL_X - active_player->x;
+;main.c:2191: UINT8 distance_to_max_x = MAX_GIRL_X - active_player->x;
 	ld	a, (hl+)
 	ld	(hl), a
 	ld	a, #0x8a
 	sub	a, (hl)
-;main.c:2190: if(distance_to_max_x < player_stats.speed)
+;main.c:2192: if(distance_to_max_x < player_stats.speed)
 	ld	hl, #(_player_stats + 4)
 	ld	c, (hl)
 	sub	a, c
 	jr	NC, 00138$
-;main.c:2192: active_player->x = MAX_GIRL_X;
+;main.c:2194: active_player->x = MAX_GIRL_X;
 	ld	hl, #(_girl + 4)
 	ld	(hl), #0x8a
 	jr	00141$
 00138$:
-;main.c:2196: active_player->x += player_stats.speed;
+;main.c:2198: active_player->x += player_stats.speed;
 	ldhl	sp,	#13
 	ld	a, (hl)
 	add	a, c
 	ld	(#(_girl + 4)),a
 00141$:
-;main.c:2201: if(active_player->anim != 4 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+;main.c:2203: if(active_player->anim != 4 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
 	ld	a, (#(_girl + 8) + 0)
 	sub	a, #0x04
 	jr	Z, 00147$
@@ -8712,13 +8768,13 @@ _main::
 	call	_joypad
 	bit	3, a
 	jr	NZ, 00147$
-;main.c:2203: character_set_sprite(active_player, 4);
+;main.c:2205: character_set_sprite(active_player, 4);
 	ld	a, #0x04
 	ld	de, #_girl
 	call	_character_set_sprite
 	jr	00152$
 00147$:
-;main.c:2205: else if(active_player->anim != 5 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
+;main.c:2207: else if(active_player->anim != 5 && !(joypad() & J_UP) && !(joypad() & J_DOWN))
 	ld	a, (#(_girl + 8) + 0)
 	sub	a, #0x05
 	jr	Z, 00152$
@@ -8728,121 +8784,121 @@ _main::
 	call	_joypad
 	bit	3, a
 	jr	NZ, 00152$
-;main.c:2207: character_set_sprite(active_player, 5);
+;main.c:2209: character_set_sprite(active_player, 5);
 	ld	a, #0x05
 	ld	de, #_girl
 	call	_character_set_sprite
 00152$:
-;main.c:2210: if(joypad() & J_UP)
+;main.c:2212: if(joypad() & J_UP)
 	call	_joypad
-;main.c:2214: if(active_player->y > MIN_GIRL_Y)
-;main.c:2210: if(joypad() & J_UP)
+;main.c:2216: if(active_player->y > MIN_GIRL_Y)
+;main.c:2212: if(joypad() & J_UP)
 	bit	2,a
 	jr	Z, 00164$
-;main.c:2212: direction = 1;
+;main.c:2214: direction = 1;
 	ld	hl, #_direction
 	ld	(hl), #0x01
-;main.c:2213: move_weapon(&sword, active_player);
+;main.c:2215: move_weapon(&sword, active_player);
 	ld	bc, #_girl
 	ld	de, #_sword
 	call	_move_weapon
-;main.c:2214: if(active_player->y > MIN_GIRL_Y)
+;main.c:2216: if(active_player->y > MIN_GIRL_Y)
 	ld	hl, #(_girl + 5)
 	ld	c, (hl)
 	ld	a, #0x14
 	sub	a, c
 	jr	NC, 00157$
-;main.c:2216: UINT8 distance_to_min_y = active_player->y - MIN_GIRL_Y;
+;main.c:2218: UINT8 distance_to_min_y = active_player->y - MIN_GIRL_Y;
 	ld	a, c
 	add	a, #0xec
-;main.c:2217: if(distance_to_min_y < player_stats.speed)
+;main.c:2219: if(distance_to_min_y < player_stats.speed)
 	ld	hl, #(_player_stats + 4)
 	ld	b, (hl)
 	sub	a, b
 	jr	NC, 00154$
-;main.c:2219: active_player->y = MIN_GIRL_Y;
+;main.c:2221: active_player->y = MIN_GIRL_Y;
 	ld	hl, #(_girl + 5)
 	ld	(hl), #0x14
 	jr	00157$
 00154$:
-;main.c:2223: active_player->y -= player_stats.speed;
+;main.c:2225: active_player->y -= player_stats.speed;
 	ld	a, c
 	sub	a, b
 	ld	(#(_girl + 5)),a
 00157$:
-;main.c:2226: if(active_player->anim != 6)
+;main.c:2228: if(active_player->anim != 6)
 	ld	a, (#(_girl + 8) + 0)
 	cp	a, #0x06
 	jr	Z, 00161$
-;main.c:2228: character_set_sprite(active_player, 6);
+;main.c:2230: character_set_sprite(active_player, 6);
 	ld	a, #0x06
 	ld	de, #_girl
 	call	_character_set_sprite
 	jr	00164$
 00161$:
-;main.c:2230: else if(active_player->anim != 7)
+;main.c:2232: else if(active_player->anim != 7)
 	sub	a, #0x07
 	jr	Z, 00164$
-;main.c:2232: character_set_sprite(active_player, 7);
+;main.c:2234: character_set_sprite(active_player, 7);
 	ld	a, #0x07
 	ld	de, #_girl
 	call	_character_set_sprite
 00164$:
-;main.c:2235: if(joypad() & J_DOWN)
+;main.c:2237: if(joypad() & J_DOWN)
 	call	_joypad
 	bit	3, a
 	jr	Z, 00176$
-;main.c:2237: direction = 0;
+;main.c:2239: direction = 0;
 	xor	a, a
 	ld	(#_direction),a
-;main.c:2238: move_weapon(&sword, active_player);
+;main.c:2240: move_weapon(&sword, active_player);
 	ld	bc, #_girl
 	ld	de, #_sword
 	call	_move_weapon
-;main.c:2239: if(active_player->y < MAX_GIRL_Y)
+;main.c:2241: if(active_player->y < MAX_GIRL_Y)
 	ld	hl, #(_girl + 5)
 	ld	c, (hl)
 	ld	a, c
 	sub	a, #0x71
 	jr	NC, 00169$
-;main.c:2241: UINT8 distance_to_max_y = MAX_GIRL_Y - active_player->y;
+;main.c:2243: UINT8 distance_to_max_y = MAX_GIRL_Y - active_player->y;
 	ld	b, c
 	ld	a, #0x71
 	sub	a, b
-;main.c:2242: if(distance_to_max_y < player_stats.speed)
+;main.c:2244: if(distance_to_max_y < player_stats.speed)
 	ld	hl, #(_player_stats + 4)
 	ld	b, (hl)
 	sub	a, b
 	jr	NC, 00166$
-;main.c:2244: active_player->y = MAX_GIRL_Y;
+;main.c:2246: active_player->y = MAX_GIRL_Y;
 	ld	hl, #(_girl + 5)
 	ld	(hl), #0x71
 	jr	00169$
 00166$:
-;main.c:2248: active_player->y += player_stats.speed;
+;main.c:2250: active_player->y += player_stats.speed;
 	ld	a, c
 	add	a, b
 	ld	(#(_girl + 5)),a
 00169$:
-;main.c:2252: if(active_player->anim != 0)
+;main.c:2254: if(active_player->anim != 0)
 	ld	a, (#(_girl + 8) + 0)
 	or	a, a
 	jr	Z, 00173$
-;main.c:2254: character_set_sprite(active_player, 0);
+;main.c:2256: character_set_sprite(active_player, 0);
 	xor	a, a
 	ld	de, #_girl
 	call	_character_set_sprite
 	jr	00176$
 00173$:
-;main.c:2256: else if(active_player->anim != 1)
+;main.c:2258: else if(active_player->anim != 1)
 	dec	a
 	jr	Z, 00176$
-;main.c:2258: character_set_sprite(active_player, 1);
+;main.c:2260: character_set_sprite(active_player, 1);
 	ld	a, #0x01
 	ld	de, #_girl
 	call	_character_set_sprite
 00176$:
-;main.c:2262: if((joypad() & J_A) && !(prev_pad & J_A) && reward_active == 0)
+;main.c:2264: if((joypad() & J_A) && !(prev_pad & J_A) && reward_active == 0)
 	call	_joypad
 	bit	4, a
 	jr	Z, 00182$
@@ -8852,77 +8908,77 @@ _main::
 	ld	a, (#_reward_active)
 	or	a, a
 	jr	NZ, 00182$
-;main.c:2264: attack(active_player, &sword);
+;main.c:2266: attack(active_player, &sword);
 	ld	bc, #_sword
 	ld	de, #_girl
 	call	_attack
 00182$:
-;main.c:2268: if(player_stats.is_dead == 1)
+;main.c:2270: if(player_stats.is_dead == 1)
 	ld	a, (#(_player_stats + 6) + 0)
 	dec	a
 	jr	NZ, 00187$
-;main.c:2270: hide_character_sprites(active_player);
+;main.c:2272: hide_character_sprites(active_player);
 	ld	de, #_girl
 	call	_hide_character_sprites
 00187$:
-;main.c:2273: update_timers(active_player, &sword);
+;main.c:2275: update_timers(active_player, &sword);
 	ld	bc, #_sword
 	ld	de, #_girl
 	call	_update_timers
-;main.c:2275: if(player_stats.is_dead == 1)
+;main.c:2277: if(player_stats.is_dead == 1)
 	ld	a, (#(_player_stats + 6) + 0)
 	dec	a
 	jr	NZ, 00189$
-;main.c:2277: hide_character_sprites(active_player);
+;main.c:2279: hide_character_sprites(active_player);
 	ld	de, #_girl
 	call	_hide_character_sprites
-;main.c:2278: hide_sword_sprites(&sword);
+;main.c:2280: hide_sword_sprites(&sword);
 	ld	de, #_sword
 	call	_hide_sword_sprites
-;main.c:2279: hide_pause_ui();
+;main.c:2281: hide_pause_ui();
 	call	_hide_pause_ui
-;main.c:2280: hide_room_clear_ui();
+;main.c:2282: hide_room_clear_ui();
 	call	_hide_room_clear_ui
-;main.c:2281: hide_reward_ui();
+;main.c:2283: hide_reward_ui();
 	call	_hide_reward_ui
-;main.c:2282: hide_ready_ui();
+;main.c:2284: hide_ready_ui();
 	call	_hide_ready_ui
-;main.c:2283: show_game_over_ui();
+;main.c:2285: show_game_over_ui();
 	call	_show_game_over_ui
-;main.c:2285: prev_pad = current_pad;
+;main.c:2287: prev_pad = current_pad;
 	ldhl	sp,	#5
 	ld	a, (hl)
 	ld	(#_prev_pad),a
-;main.c:2286: performantdelay(5);
+;main.c:2288: performantdelay(5);
 	ld	a, #0x05
 	call	_performantdelay
-;main.c:2287: continue;
+;main.c:2289: continue;
 	jp	00257$
 00189$:
-;main.c:2290: UINT8 can_enemies_move = 1;
+;main.c:2292: UINT8 can_enemies_move = 1;
 	ldhl	sp,	#4
 	ld	(hl), #0x01
-;main.c:2291: UINT8 delay_active = 0;
+;main.c:2293: UINT8 delay_active = 0;
 	ldhl	sp,	#8
 	ld	(hl), #0x00
-;main.c:2292: if(enemy_start_delay_timer > 0)
+;main.c:2294: if(enemy_start_delay_timer > 0)
 	ld	a, (#_enemy_start_delay_timer)
 	or	a, a
 	jr	Z, 00191$
-;main.c:2294: delay_active = 1;
+;main.c:2296: delay_active = 1;
 	ldhl	sp,	#8
 	ld	(hl), #0x01
-;main.c:2295: enemy_start_delay_timer--;
+;main.c:2297: enemy_start_delay_timer--;
 	ld	hl, #_enemy_start_delay_timer
 	dec	(hl)
-;main.c:2296: can_enemies_move = 0;
+;main.c:2298: can_enemies_move = 0;
 	ldhl	sp,	#4
 	ld	(hl), #0x00
 00191$:
-;main.c:2300: UINT8 all_enemies_dead = 1;
+;main.c:2302: UINT8 all_enemies_dead = 1;
 	ldhl	sp,	#9
 	ld	(hl), #0x01
-;main.c:2301: for(UINT8 i = 0; i < current_enemy_count; i++)
+;main.c:2303: for(UINT8 i = 0; i < current_enemy_count; i++)
 	ldhl	sp,	#13
 	ld	(hl), #0x00
 00265$:
@@ -8931,7 +8987,7 @@ _main::
 	ld	hl, #_current_enemy_count
 	sub	a, (hl)
 	jp	NC, 00207$
-;main.c:2303: if(enemies[i].death == 0)
+;main.c:2305: if(enemies[i].death == 0)
 	ldhl	sp,	#13
 	ld	c, (hl)
 	ld	b, #0x00
@@ -8967,7 +9023,7 @@ _main::
 	ld	a, (bc)
 	ldhl	sp,	#14
 	ld	(hl), a
-;main.c:2308: slime_can_move(&enemies[i], active_player);
+;main.c:2310: slime_can_move(&enemies[i], active_player);
 	ldhl	sp,	#0
 	ld	a, (hl+)
 	inc	hl
@@ -8975,20 +9031,20 @@ _main::
 	ld	a, (hl+)
 	inc	hl
 	ld	(hl), a
-;main.c:2303: if(enemies[i].death == 0)
+;main.c:2305: if(enemies[i].death == 0)
 	ldhl	sp,	#14
 	ld	a, (hl)
 	or	a, a
 	jp	NZ, 00205$
-;main.c:2305: all_enemies_dead = 0;
+;main.c:2307: all_enemies_dead = 0;
 	ldhl	sp,	#9
 	ld	(hl), #0x00
-;main.c:2306: if(can_enemies_move)
+;main.c:2308: if(can_enemies_move)
 	ldhl	sp,	#4
 	ld	a, (hl)
 	or	a, a
 	jr	Z, 00193$
-;main.c:2308: slime_can_move(&enemies[i], active_player);
+;main.c:2310: slime_can_move(&enemies[i], active_player);
 	dec	hl
 	dec	hl
 	ld	bc, #_girl
@@ -8997,7 +9053,7 @@ _main::
 	ld	d, (hl)
 	call	_slime_can_move
 00193$:
-;main.c:2312: if(enemies[i].type == ENEMY_TYPE_SLIME)
+;main.c:2314: if(enemies[i].type == ENEMY_TYPE_SLIME)
 	ldhl	sp,	#0
 	ld	a, (hl)
 	ldhl	sp,	#10
@@ -9015,7 +9071,7 @@ _main::
 	ld	a, (bc)
 	or	a, a
 	jr	NZ, 00200$
-;main.c:2314: animate_enemy(&enemies[i], 16, 17);  // Slime tiles
+;main.c:2316: animate_enemy(&enemies[i], 16, 17);  // Slime tiles
 	ld	a, #0x11
 	push	af
 	inc	sp
@@ -9027,10 +9083,10 @@ _main::
 	call	_animate_enemy
 	jr	00266$
 00200$:
-;main.c:2316: else if(enemies[i].type == ENEMY_TYPE_BOSS)
+;main.c:2318: else if(enemies[i].type == ENEMY_TYPE_BOSS)
 	dec	a
 	jr	NZ, 00266$
-;main.c:2320: UINT8 base_tile = (enemies[i].attack_anim_frame < 2) ? 22 : 26;
+;main.c:2322: UINT8 base_tile = (enemies[i].attack_anim_frame < 2) ? 22 : 26;
 	pop	de
 	push	de
 	ld	hl, #0x0010
@@ -9050,7 +9106,7 @@ _main::
 	ldhl	sp,	#14
 	ld	a, (hl-)
 	dec	hl
-;main.c:2323: for(UINT8 j = 0; j < 4; j++)
+;main.c:2325: for(UINT8 j = 0; j < 4; j++)
 	ld	(hl+), a
 	inc	hl
 	ld	(hl), #0x00
@@ -9059,7 +9115,7 @@ _main::
 	ld	a, (hl)
 	sub	a, #0x04
 	jr	NC, 00266$
-;main.c:2325: if(enemies[i].spritids[j] != 0xFF)
+;main.c:2327: if(enemies[i].spritids[j] != 0xFF)
 	ldhl	sp,#10
 	ld	a, (hl+)
 	ld	e, a
@@ -9074,7 +9130,7 @@ _main::
 	ld	c, a
 	inc	a
 	jr	Z, 00263$
-;main.c:2327: set_sprite_tile(enemies[i].spritids[j], base_tile + j);
+;main.c:2329: set_sprite_tile(enemies[i].spritids[j], base_tile + j);
 	ldhl	sp,	#12
 	ld	a, (hl+)
 	inc	hl
@@ -9094,33 +9150,33 @@ _main::
 	ld	b, h
 	ld	a, e
 	ld	(bc), a
-;main.c:2327: set_sprite_tile(enemies[i].spritids[j], base_tile + j);
+;main.c:2329: set_sprite_tile(enemies[i].spritids[j], base_tile + j);
 00263$:
-;main.c:2323: for(UINT8 j = 0; j < 4; j++)
+;main.c:2325: for(UINT8 j = 0; j < 4; j++)
 	ldhl	sp,	#14
 	inc	(hl)
 	jr	00262$
 00205$:
-;main.c:2332: else if(enemies[i].death == 1)
+;main.c:2334: else if(enemies[i].death == 1)
 	ldhl	sp,	#14
 	ld	a, (hl)
 	dec	a
 	jr	NZ, 00266$
-;main.c:2334: hide_enemy_sprites(&enemies[i]);
+;main.c:2336: hide_enemy_sprites(&enemies[i]);
 	ldhl	sp,	#2
 	ld	a, (hl+)
 	ld	e, a
 	ld	d, (hl)
 	call	_hide_enemy_sprites
 00266$:
-;main.c:2301: for(UINT8 i = 0; i < current_enemy_count; i++)
+;main.c:2303: for(UINT8 i = 0; i < current_enemy_count; i++)
 	ldhl	sp,	#13
 	inc	(hl)
 	jp	00265$
 00207$:
-;main.c:2338: resolve_enemy_collisions();
+;main.c:2340: resolve_enemy_collisions();
 	call	_resolve_enemy_collisions
-;main.c:2340: for(UINT8 i = 0; i < current_enemy_count; i++)
+;main.c:2342: for(UINT8 i = 0; i < current_enemy_count; i++)
 	ldhl	sp,	#14
 	ld	(hl), #0x00
 00268$:
@@ -9129,7 +9185,7 @@ _main::
 	ld	hl, #_current_enemy_count
 	sub	a, (hl)
 	jp	NC, 00210$
-;main.c:2342: if(enemies[i].death == 0)
+;main.c:2344: if(enemies[i].death == 0)
 	ldhl	sp,	#14
 	ld	c, (hl)
 	ld	b, #0x00
@@ -9182,7 +9238,7 @@ _main::
 	ld	a, (hl)
 	or	a, a
 	jr	NZ, 00269$
-;main.c:2344: move_enemy_small(&enemies[i], enemies[i].x, enemies[i].y);
+;main.c:2346: move_enemy_small(&enemies[i], enemies[i].x, enemies[i].y);
 	inc	hl
 	ld	a, (hl+)
 	ld	e, a
@@ -9232,65 +9288,65 @@ _main::
 	ld	d, (hl)
 	call	_move_enemy_small
 00269$:
-;main.c:2340: for(UINT8 i = 0; i < current_enemy_count; i++)
+;main.c:2342: for(UINT8 i = 0; i < current_enemy_count; i++)
 	ldhl	sp,	#14
 	inc	(hl)
 	jp	00268$
 00210$:
-;main.c:2348: if(all_enemies_dead)
+;main.c:2350: if(all_enemies_dead)
 	ldhl	sp,	#9
 	ld	a, (hl)
 	or	a, a
 	jp	Z, 00232$
-;main.c:2350: hide_ready_ui();
+;main.c:2352: hide_ready_ui();
 	call	_hide_ready_ui
-;main.c:2352: if(room_cleared == 0)
+;main.c:2354: if(room_cleared == 0)
 	ld	hl, #_room_cleared
 	ld	a, (hl)
 	or	a, a
 	jr	NZ, 00212$
-;main.c:2354: room_cleared = 1;
+;main.c:2356: room_cleared = 1;
 	ld	(hl), #0x01
-;main.c:2355: room_clear_timer = ROOM_CLEAR_SHOW_FRAMES;
+;main.c:2357: room_clear_timer = ROOM_CLEAR_SHOW_FRAMES;
 	ld	hl, #_room_clear_timer
 	ld	(hl), #0x0f
 00212$:
-;main.c:2358: if(room_clear_timer > 0)
+;main.c:2360: if(room_clear_timer > 0)
 	ld	hl, #_room_clear_timer
 	ld	a, (hl)
 	or	a, a
 	jr	Z, 00223$
-;main.c:2360: room_clear_timer--;
+;main.c:2362: room_clear_timer--;
 	dec	(hl)
-;main.c:2361: hide_reward_ui();
+;main.c:2363: hide_reward_ui();
 	call	_hide_reward_ui
-;main.c:2362: show_room_clear_ui();
+;main.c:2364: show_room_clear_ui();
 	call	_show_room_clear_ui
 	jp	00233$
 00223$:
-;main.c:2366: if(reward_claimed == 0 && reward_active == 0)
+;main.c:2368: if(reward_claimed == 0 && reward_active == 0)
 	ld	a, (#_reward_claimed)
 	or	a, a
 	jr	NZ, 00214$
 	ld	a, (#_reward_active)
 	or	a, a
 	jr	NZ, 00214$
-;main.c:2368: roll_room_reward();
+;main.c:2370: roll_room_reward();
 	call	_roll_room_reward
-;main.c:2369: reward_active = 1;
+;main.c:2371: reward_active = 1;
 	ld	hl, #_reward_active
 	ld	(hl), #0x01
 00214$:
-;main.c:2372: if(reward_active)
+;main.c:2374: if(reward_active)
 	ld	a, (#_reward_active)
 	or	a, a
 	jr	Z, 00220$
-;main.c:2374: hide_room_clear_ui();
+;main.c:2376: hide_room_clear_ui();
 	call	_hide_room_clear_ui
-;main.c:2375: show_reward_ui(reward_type);
+;main.c:2377: show_reward_ui(reward_type);
 	ld	a, (_reward_type)
 	call	_show_reward_ui
-;main.c:2377: if((current_pad & J_START) && !(prev_pad & J_START))
+;main.c:2379: if((current_pad & J_START) && !(prev_pad & J_START))
 	xor	a, a
 	ldhl	sp,	#6
 	or	a, (hl)
@@ -9298,85 +9354,85 @@ _main::
 	ld	a, (_prev_pad)
 	rlca
 	jr	C, 00233$
-;main.c:2379: apply_reward(reward_type);
+;main.c:2381: apply_reward(reward_type);
 	ld	a, (_reward_type)
 	call	_apply_reward
-;main.c:2380: reward_active = 0;
+;main.c:2382: reward_active = 0;
 	xor	a, a
 	ld	(#_reward_active),a
-;main.c:2381: reward_claimed = 1;
+;main.c:2383: reward_claimed = 1;
 	ld	hl, #_reward_claimed
 	ld	(hl), #0x01
-;main.c:2382: can_transition = 1;
+;main.c:2384: can_transition = 1;
 	ld	hl, #_can_transition
 	ld	(hl), #0x01
-;main.c:2383: transition_cooldown_timer = TRANSITION_COOLDOWN_FRAMES;
+;main.c:2385: transition_cooldown_timer = TRANSITION_COOLDOWN_FRAMES;
 	ld	hl, #_transition_cooldown_timer
 	ld	(hl), #0x0a
-;main.c:2384: hide_reward_ui();
+;main.c:2386: hide_reward_ui();
 	call	_hide_reward_ui
-;main.c:2385: hide_room_clear_ui();
+;main.c:2387: hide_room_clear_ui();
 	call	_hide_room_clear_ui
-;main.c:2386: update_window_stats_ui();
+;main.c:2388: update_window_stats_ui();
 	call	_update_window_stats_ui
 	jr	00233$
 00220$:
-;main.c:2391: hide_reward_ui();
+;main.c:2393: hide_reward_ui();
 	call	_hide_reward_ui
-;main.c:2392: hide_room_clear_ui();
+;main.c:2394: hide_room_clear_ui();
 	call	_hide_room_clear_ui
 	jr	00233$
 00232$:
-;main.c:2398: room_cleared = 0;
-;main.c:2399: reward_active = 0;
+;main.c:2400: room_cleared = 0;
+;main.c:2401: reward_active = 0;
 	xor	a, a
 	ld	(#_room_cleared), a
 	ld	(#_reward_active),a
-;main.c:2400: reward_claimed = 0;
-;main.c:2401: can_transition = 0;
+;main.c:2402: reward_claimed = 0;
+;main.c:2403: can_transition = 0;
 	xor	a, a
 	ld	(#_reward_claimed), a
 	ld	(#_can_transition),a
-;main.c:2402: room_clear_timer = 0;
-;main.c:2403: transition_cooldown_timer = 0;
+;main.c:2404: room_clear_timer = 0;
+;main.c:2405: transition_cooldown_timer = 0;
 	xor	a, a
 	ld	(#_room_clear_timer), a
 	ld	(#_transition_cooldown_timer),a
-;main.c:2404: hide_room_clear_ui();
+;main.c:2406: hide_room_clear_ui();
 	call	_hide_room_clear_ui
-;main.c:2405: hide_reward_ui();
+;main.c:2407: hide_reward_ui();
 	call	_hide_reward_ui
-;main.c:2407: if(delay_active)
+;main.c:2409: if(delay_active)
 	ldhl	sp,	#8
 	ld	a, (hl)
 	or	a, a
 	jr	Z, 00229$
-;main.c:2409: if(enemy_start_delay_timer & 0x04)
+;main.c:2411: if(enemy_start_delay_timer & 0x04)
 	ld	a, (_enemy_start_delay_timer)
 	bit	2, a
 	jr	Z, 00226$
-;main.c:2411: show_ready_ui();
+;main.c:2413: show_ready_ui();
 	call	_show_ready_ui
 	jr	00233$
 00226$:
-;main.c:2415: hide_ready_ui();
+;main.c:2417: hide_ready_ui();
 	call	_hide_ready_ui
 	jr	00233$
 00229$:
-;main.c:2420: hide_ready_ui();
+;main.c:2422: hide_ready_ui();
 	call	_hide_ready_ui
 00233$:
-;main.c:2425: animtimer++;
+;main.c:2427: animtimer++;
 	ld	hl, #_animtimer
 	inc	(hl)
-;main.c:2426: if(animtimer == ANIM_TIMER_MAX)
+;main.c:2428: if(animtimer == ANIM_TIMER_MAX)
 	ld	a, (hl)
 	sub	a, #0x14
 	jr	NZ, 00236$
-;main.c:2428: animtimer = 0;
+;main.c:2430: animtimer = 0;
 	xor	a, a
 	ld	(#_animtimer),a
-;main.c:2429: for(UINT8 i = 0; i < current_enemy_count; i++)
+;main.c:2431: for(UINT8 i = 0; i < current_enemy_count; i++)
 	ldhl	sp,	#14
 	ld	(hl), #0x00
 00271$:
@@ -9385,7 +9441,7 @@ _main::
 	ld	hl, #_current_enemy_count
 	sub	a, (hl)
 	jr	NC, 00236$
-;main.c:2431: enemies[i].anim = (enemies[i].anim == 0) ? 1 : 0;
+;main.c:2433: enemies[i].anim = (enemies[i].anim == 0) ? 1 : 0;
 	ldhl	sp,	#14
 	ld	c, (hl)
 	ld	b, #0x00
@@ -9433,19 +9489,19 @@ _main::
 	ld	h, (hl)
 	ld	l, e
 	ld	(hl), a
-;main.c:2429: for(UINT8 i = 0; i < current_enemy_count; i++)
+;main.c:2431: for(UINT8 i = 0; i < current_enemy_count; i++)
 	ldhl	sp,	#14
 	inc	(hl)
 	jr	00271$
 00236$:
-;main.c:2436: if(player_stats.is_dead == 0)
+;main.c:2438: if(player_stats.is_dead == 0)
 	ld	a, (#(_player_stats + 6) + 0)
 	ldhl	sp,#14
 	ld	(hl), a
 	ld	a, (hl)
 	or	a, a
 	jr	NZ, 00241$
-;main.c:2438: UINT8 max_check = (current_enemy_count > MAX_ENEMIES) ? MAX_ENEMIES : current_enemy_count;
+;main.c:2440: UINT8 max_check = (current_enemy_count > MAX_ENEMIES) ? MAX_ENEMIES : current_enemy_count;
 	ld	a, #0x0a
 	ld	hl, #_current_enemy_count
 	sub	a, (hl)
@@ -9457,7 +9513,7 @@ _main::
 00283$:
 	ldhl	sp,	#11
 	ld	(hl), a
-;main.c:2439: for(UINT8 i = 0; i < max_check; i++)
+;main.c:2441: for(UINT8 i = 0; i < max_check; i++)
 	ldhl	sp,	#14
 	ld	(hl), #0x00
 00274$:
@@ -9466,7 +9522,7 @@ _main::
 	ldhl	sp,	#11
 	sub	a, (hl)
 	jr	NC, 00241$
-;main.c:2442: if(enemies[i].death == 0)
+;main.c:2444: if(enemies[i].death == 0)
 	ldhl	sp,	#14
 	ld	c, (hl)
 	ld	b, #0x00
@@ -9497,34 +9553,34 @@ _main::
 	ld	a, (hl)
 	or	a, a
 	jr	NZ, 00275$
-;main.c:2444: character_enemy_collision(active_player, &enemies[i]);
+;main.c:2446: character_enemy_collision(active_player, &enemies[i]);
 	ld	c, e
 	ld	b, d
 	ld	de, #_girl
 	call	_character_enemy_collision
 00275$:
-;main.c:2439: for(UINT8 i = 0; i < max_check; i++)
+;main.c:2441: for(UINT8 i = 0; i < max_check; i++)
 	ldhl	sp,	#14
 	inc	(hl)
 	jr	00274$
 00241$:
-;main.c:2449: if(can_transition == 1)
+;main.c:2451: if(can_transition == 1)
 	ld	a, (#_can_transition)
 	dec	a
 	jr	NZ, 00255$
-;main.c:2451: if(transition_cooldown_timer > 0)
+;main.c:2453: if(transition_cooldown_timer > 0)
 	ld	hl, #_transition_cooldown_timer
 	ld	a, (hl)
 	or	a, a
 	jr	Z, 00250$
-;main.c:2453: transition_cooldown_timer--;
+;main.c:2455: transition_cooldown_timer--;
 	dec	(hl)
 	jr	00255$
 00250$:
-;main.c:2063: if((current_pad & J_START) && !(prev_pad & J_START))
+;main.c:2065: if((current_pad & J_START) && !(prev_pad & J_START))
 	ld	a, (_prev_pad)
 	ld	c, a
-;main.c:2455: else if(((current_pad & J_A) && !(prev_pad & J_A)) ||
+;main.c:2457: else if(((current_pad & J_A) && !(prev_pad & J_A)) ||
 	push	hl
 	ldhl	sp,	#7
 	bit	4, (hl)
@@ -9533,7 +9589,7 @@ _main::
 	bit	4, c
 	jr	Z, 00244$
 00248$:
-;main.c:2456: ((current_pad & J_START) && !(prev_pad & J_START)))
+;main.c:2458: ((current_pad & J_START) && !(prev_pad & J_START)))
 	xor	a, a
 	ldhl	sp,	#6
 	or	a, (hl)
@@ -9541,7 +9597,7 @@ _main::
 	bit	7, c
 	jr	NZ, 00255$
 00244$:
-;main.c:2459: UINT8 next_room = (room + 1) % TOTAL_ROOMS;
+;main.c:2461: UINT8 next_room = (room + 1) % TOTAL_ROOMS;
 	ld	a, (_room)
 	ld	d, #0x00
 	ld	e, a
@@ -9549,38 +9605,38 @@ _main::
 	ld	bc, #0x0006
 	call	__modsint
 	ld	a,c
-;main.c:2460: if(next_room == 0)
+;main.c:2462: if(next_room == 0)
 	or	a, a
 	jr	NZ, 00243$
-;main.c:2463: stage++;
+;main.c:2465: stage++;
 	ld	hl, #_stage
 	inc	(hl)
-;main.c:2464: enemy_hp_multiplier <<= 1;  // double
+;main.c:2466: enemy_hp_multiplier <<= 1;  // double
 	ld	hl, #_enemy_hp_multiplier
 	sla	(hl)
-;main.c:2465: update_window_stats_ui();
+;main.c:2467: update_window_stats_ui();
 	push	bc
 	call	_update_window_stats_ui
 	pop	bc
 00243$:
-;main.c:2467: room = next_room;
+;main.c:2469: room = next_room;
 	ld	hl, #_room
 	ld	(hl), c
-;main.c:2468: load_room(room);
+;main.c:2470: load_room(room);
 	ld	a, (hl)
 	call	_load_room
 00255$:
-;main.c:2510: prev_pad = current_pad;
+;main.c:2512: prev_pad = current_pad;
 	ldhl	sp,	#5
 	ld	a, (hl)
 	ld	(#_prev_pad),a
-;main.c:2511: update_window_stats_ui();
+;main.c:2513: update_window_stats_ui();
 	call	_update_window_stats_ui
-;main.c:2512: performantdelay(5);
+;main.c:2514: performantdelay(5);
 	ld	a, #0x05
 	call	_performantdelay
 	jp	00257$
-;main.c:2515: }
+;main.c:2517: }
 	add	sp, #15
 	ret
 	.area _CODE
